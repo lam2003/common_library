@@ -8,6 +8,7 @@ namespace common_library {
 
 template <typename T> struct function_traits;
 
+// 普通函数
 template <typename Ret, typename... Args> struct function_traits<Ret(Args...)> {
   enum { arity = sizeof...(Args) };
 
@@ -22,6 +23,30 @@ template <typename Ret, typename... Args> struct function_traits<Ret(Args...)> {
     using type = typename std::tuple_element<I, std::tuple<Args...>>::type;
   };
 };
+
+// 函数指针
+template <typename Ret, typename... Args>
+struct function_traits<Ret (*)(Args...)> : function_traits<Ret(Args...)> {};
+
+// stl std::function
+template <typename Ret, typename... Args>
+struct function_traits<std::function<Ret(Args...)>>
+    : function_traits<Ret(Args...)> {};
+
+// 成员函数
+#define FUNCTION_TRAITS(...)                                                   \
+  template <typename ReturnType, typename Class, typename... Args>             \
+  struct function_traits<ReturnType (Class::*)(Args...) __VA_ARGS__>           \
+      : function_traits<ReturnType(Args...)> {};
+
+FUNCTION_TRAITS()
+FUNCTION_TRAITS(const)
+FUNCTION_TRAITS(volatile)
+FUNCTION_TRAITS(const volatile)
+
+// 对象函数
+template <typename Callable>
+struct function_traits : function_traits<decltype(&Callable::operator())> {};
 
 } // namespace common_library
 
