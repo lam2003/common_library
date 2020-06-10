@@ -1,10 +1,10 @@
 #ifndef COMMON_LIBRARY_SEMAPHORE_H
-#define COMMON_LIBARRY_SEMAPHORE_H
-
-#include <stdint.h>
+#define COMMON_LIBRARY_SEMAPHORE_H
 
 #include <condition_variable>
 #include <mutex>
+
+#include <stdint.h>
 
 namespace common_library {
 
@@ -25,6 +25,7 @@ public:
 
   void Wait() {
     std::unique_lock<std::mutex> lock(mux_);
+    // 防止虚假唤醒
     while (count_ == 0) {
       cond_.wait(lock);
     }

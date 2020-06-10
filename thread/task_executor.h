@@ -1,6 +1,7 @@
 #ifndef COMMON_LIBRARY_TASK_EXECUTOR_H
 #define COMMON_LIBRARY_TASK_EXECUTOR_H
 
+#include <thread/semaphore.h>
 #include <utils/noncopyable.h>
 
 #include <functional>
@@ -78,9 +79,7 @@ public:
     return Async(std::move(task), may_sync);
   }
 
-  void Sync(TaskIn &&task) {
-    
-  }
+  void Sync(TaskIn &&task) { Semaphore sem; }
 };
 
 } // namespace common_library
