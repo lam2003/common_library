@@ -65,6 +65,24 @@ private:
   std::weak_ptr<function_type> weak_task_;
 };
 
+typedef std::function<void()> TaskIn;
+typedef TaskCancelableImpl<void()> Task;
+
+class TaskExecutorInterface {
+public:
+  TaskExecutorInterface() = default;
+  virtual ~TaskExecutorInterface() = default;
+
+  virtual Task::ptr Async(TaskIn &&task, bool may_sync = true) = 0;
+  virtual Task::ptr AsyncFirst(TaskIn &&task, bool may_sync = true) {
+    return Async(std::move(task), may_sync);
+  }
+
+  void Sync(TaskIn &&task) {
+    
+  }
+};
+
 } // namespace common_library
 
 #endif
