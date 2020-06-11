@@ -1,6 +1,10 @@
 #ifndef COMMON_LIBRARY_LIST_H
 #define COMMON_LIBRARY_LIST_H
 
+#include <utility>
+
+#include <stdint.h>
+
 namespace common_library {
 
 template <typename T> class List;

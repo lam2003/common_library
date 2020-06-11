@@ -52,24 +52,27 @@ int main()
 
     // sleep(11111111);
 
-    List<int> list;
+    // List<int> oo;
+    //    oo.emplace_back(2);
+    // oo.emplace_back(1);
+    // int ii = 22314;
+    // oo.emplace_back(ii);
+    // oo.for_each([](int ia ){
+    //     printf("%d\n",ia);
+    // });
+    // printf("%d\n", oo[2]);s
 
-    int a = 2;
-    list.emplace_front(1);
-    list.emplace_front(a);
-    list.emplace_back(3);
+    ThreadLoadCounter c(100, 10 * 1000 * 1000);
 
-    list.for_each([](int a) { printf("a:%d\n", a); });
+    c.Sleep();
+    usleep(4 * 1000 * 1000);
+    c.WakeUp();
+    uint64_t ii = 1*10000*10000;
+    while (ii--) {}
+    // usleep(3 * 1000 * 1000);
 
-    list.clear();
-
-      list.emplace_back(3);
-        list.emplace_back(3);
-          list.emplace_back(3);
-          list.pop_front();
-                   list.pop_front();
-                            list.pop_front();
-                                     list.pop_front();
-                                     
-     list.for_each([](int a) { printf("aa:%d\n", a); });
+       usleep(10 * 1000 * 1000);
+    int aa = c.Load();
+    printf("aa:%d\n", aa);
+    return 0;
 }
