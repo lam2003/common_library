@@ -32,7 +32,7 @@ class OnceToken {
     }
 
   private:
-    // 禁用默认构造哦函数及复制构造函数
+    // 禁用默认构造函数及复制构造函数
     OnceToken()                      = delete;
     OnceToken(const OnceToken& that) = delete;
     OnceToken(OnceToken&& that)      = delete;
