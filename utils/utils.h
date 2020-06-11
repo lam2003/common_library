@@ -6,6 +6,6 @@
 namespace common_library {
 int64_t get_current_microseconds();
 int64_t get_current_milliseconds();
-} // namespace common_library
+}  // namespace common_library
 
 #endif
