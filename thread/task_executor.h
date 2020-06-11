@@ -3,6 +3,7 @@
 
 #include <thread/semaphore.h>
 #include <utils/noncopyable.h>
+#include <utils/once_token.h>
 
 #include <functional>
 #include <memory>
@@ -79,8 +80,38 @@ public:
     return Async(std::move(task), may_sync);
   }
 
-  void Sync(TaskIn &&task) { Semaphore sem; }
+  void Sync(TaskIn &&task) {
+    Semaphore sem;
+    std::shared_ptr<Task> ptask = Async([&]() {
+      OnceToken(nullptr, [&]() {
+        // 利用RAII原理避免发生异常时这行代码未被执行
+        sem.Post();
+      });
+      task();
+    });
+
+    if (ptask && *ptask) {
+      sem.Wait();
+    }
+  }
+
+  void SyncFirst(TaskIn &&task, bool may_sync = true) {
+    Semaphore sem;
+    std::shared_ptr<Task> ptask = AsyncFirst([&]() {
+      OnceToken(nullptr, [&]() {
+        // 利用RAII原理避免发生异常时这行代码未被执行
+        sem.Post();
+      });
+      task();
+    });
+
+    if (ptask && *ptask) {
+      sem.Wait();
+    }
+  }
 };
+
+class ThreadLoadCounter {};
 
 } // namespace common_library
 
