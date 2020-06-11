@@ -9,14 +9,9 @@ template <typename T> class ListNode {
   public:
     friend class List<T>;
 
-    ListNode(const T& data)
+    template <typename... Args>
+    ListNode(Args&&... args) : data_(std::forward<Args>(args)...)
     {
-        data_ = data;
-    }
-
-    ListNode(T&& data)
-    {
-        data_ = std::forward<T>(data);
     }
 
   private:
@@ -157,6 +152,11 @@ template <typename T> class List {
             ptr = ptr->next_;
         }
         return ptr->data_;
+    }
+
+    uint64_t size()
+    {
+        return size_;
     }
 
   private:

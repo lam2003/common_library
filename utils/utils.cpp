@@ -9,23 +9,23 @@
 
 namespace common_library {
 
-static inline int64_t get_current_microseconds_origin()
+static inline uint64_t get_current_microseconds_origin()
 {
     return std::chrono::duration_cast<std::chrono::microseconds>(
                std::chrono::system_clock::now().time_since_epoch())
         .count();
 }
 
-static std::atomic<int64_t>
+static std::atomic<uint64_t>
     s_now_microseconds(get_current_microseconds_origin());
-static std::atomic<int64_t>
+static std::atomic<uint64_t>
     s_now_milliseconds(get_current_microseconds_origin() / 1000);
 
 static inline bool init_update_ts_thread()
 {
     // C++11局部静态变量构造是线程安全的
     static std::thread update_ts_thread([]() {
-        int64_t now_microseconds;
+        uint64_t now_microseconds;
         while (true) {
             now_microseconds = get_current_microseconds_origin();
             s_now_microseconds.store(now_microseconds,
@@ -41,13 +41,13 @@ static inline bool init_update_ts_thread()
     return true;
 }
 
-int64_t get_current_microseconds()
+uint64_t get_current_microseconds()
 {
     static bool flag = init_update_ts_thread();
     return s_now_microseconds.load(std::memory_order_acquire);
 }
 
-int64_t get_current_milliseconds()
+uint64_t get_current_milliseconds()
 {
     static bool flag = init_update_ts_thread();
     return s_now_milliseconds.load(std::memory_order_acquire);
