@@ -12,7 +12,6 @@ template <typename T> class ListNode {
     ListNode(const T& data)
     {
         data_ = data;
-        next_ = nullptr;
     }
 
     ListNode(T&& data)
@@ -22,22 +21,23 @@ template <typename T> class ListNode {
 
   private:
     T         data_;
-    ListNode* next_;
+    ListNode* next_ = nullptr;
 };
 
 template <typename T> class List {
   public:
     typedef ListNode<T> NodeType;
 
-    List()
+    List() {}
+
+    List(List&& other)
     {
-        front_ = tail_ = nullptr;
-        size_          = 0;
+        swap(other);
     }
 
-    void emplace_front(T&& data)
+    template <typename... Args> void emplace_front(Args&&... args)
     {
-        NodeType* node = new NodeType(std::forward<T>(data));
+        NodeType* node = new NodeType(std::forward<Args>(args)...);
         if (!front_) {
             front_ = tail_ = node;
         }
@@ -48,15 +48,15 @@ template <typename T> class List {
         ++size_;
     }
 
-    void emplace_front(const T& data)
+    template <typename... Args> void emplace_back(Args&&... args)
     {
-        NodeType* node = new NodeType(data);
-        if (!front_) {
+        NodeType* node = new NodeType(std::forward<Args>(args)...);
+        if (!tail_) {
             front_ = tail_ = node;
         }
         else {
-            node->next_ = front_;
-            front_      = node;
+            tail_->next_ = node;
+            tail_        = node;
         }
         ++size_;
     }
@@ -77,36 +77,92 @@ template <typename T> class List {
         }
     }
 
-    void emplace_back(T&& data)
+    void clear()
     {
-        NodeType* node = new NodeType(std::forward<T>(data));
-        if (!tail_) {
-            front_ = tail_ = node;
+        NodeType* ptr  = front_;
+        NodeType* last = ptr;
+        while (ptr) {
+            last = ptr;
+            ptr  = ptr->next_;
+            delete last;
         }
-        else {
-            tail_->next_ = node;
-            tail_        = node;
-        }
-        ++size_;
+
+        front_ = tail_ = nullptr;
+        size_          = 0;
     }
 
-    void emplace_back(const T& data)
+    T& front()
     {
-        NodeType* node = new NodeType(data);
-        if (!tail_) {
-            front_ = tail_ = node;
+        return front_->data_;
+    }
+
+    T& back()
+    {
+        return tail_->data_;
+    }
+
+    template <typename Func> void for_each(Func&& f)
+    {
+        NodeType* ptr = front_;
+        while (ptr) {
+            f(ptr->data_);
+            ptr = ptr->next_;
+        }
+    }
+
+    void swap(List& other)
+    {
+        NodeType* tmp_node;
+
+        tmp_node     = front_;
+        front_       = other.front_;
+        other.front_ = tmp_node;
+
+        tmp_node    = tail_;
+        tail_       = other.tail_;
+        other.tail_ = tmp_node;
+
+        uint64_t tmp_size = size_;
+        size_             = other.size_;
+        other.size_       = tmp_size;
+    }
+
+    bool empty()
+    {
+        return size_ == 0;
+    }
+
+    void append(List& other)
+    {
+        if (other.empty()) {
+            return;
+        }
+        if (tail_) {
+            tail_->next_ = other.front_;
         }
         else {
-            tail_->next_ = node;
-            tail_        = node;
+            front_ = other.front_;
         }
-        ++size_;
+
+        tail_ = other.tail_;
+        size_ += other.size_;
+        other.front_ = other.tail_ = nullptr;
+        other.size_                = 0;
+    }
+
+    T& operator[](uint64_t pos)
+    {
+        NodeType* ptr = front_;
+        while (pos--) {
+            ptr = ptr->next_;
+        }
+        return ptr->data_;
     }
 
   private:
-    NodeType* front_;
-    NodeType* tail_;
-    uint64_t  size_;
+    NodeType* front_ = nullptr;
+    NodeType* tail_  = nullptr;
+    uint64_t  size_  = 0;
 };
 
 }  // namespace common_library

@@ -11,8 +11,8 @@ namespace common_library {
 
 static inline int64_t get_current_microseconds_origin()
 {
-    using namespace std::chrono;
-    return duration_cast<microseconds>(system_clock::now().time_since_epoch())
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+               std::chrono::system_clock::now().time_since_epoch())
         .count();
 }
 
