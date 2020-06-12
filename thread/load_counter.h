@@ -1,5 +1,5 @@
-#ifndef COMMON_LIBRARY_LOAD_COUNTER_H
-#define COMMON_LIBRARY_LOAD_COUNTER_H
+#ifndef COMMON_LIBRARY_THREAD_LOAD_COUNTER_H
+#define COMMON_LIBRARY_THREAD_LOAD_COUNTER_H
 
 #include <utils/list.h>
 #include <utils/utils.h>
@@ -10,18 +10,23 @@ namespace common_library {
 
 class ThreadLoadCounter {
   public:
-    ThreadLoadCounter(uint64_t max_size, uint32_t max_duration_usec)
+    virtual int Load() = 0;
+};
+
+class ThreadLoadCounterImpl : public ThreadLoadCounter {
+  public:
+    ThreadLoadCounterImpl(uint64_t max_size, uint32_t max_duration_usec)
     {
         last_sleep_time_usec_ = last_wake_time_usec_ =
             get_current_microseconds();
         max_size_          = max_size;
         max_duration_usec_ = max_duration_usec;
     }
-    virtual ~ThreadLoadCounter() {}
+    ~ThreadLoadCounterImpl() {}
 
     void Sleep()
     {
-        std::unique_lock<std::mutex> mux_;
+        std::unique_lock<std::mutex> lock(mux_);
 
         sleep_ = true;
 
@@ -38,7 +43,7 @@ class ThreadLoadCounter {
 
     void WakeUp()
     {
-        std::unique_lock<std::mutex> mux_;
+        std::unique_lock<std::mutex> lock(mux_);
 
         sleep_ = false;
 
@@ -52,9 +57,9 @@ class ThreadLoadCounter {
         }
     }
 
-    int Load()
+    int Load() override
     {
-        std::unique_lock<std::mutex> mux_;
+        std::unique_lock<std::mutex> lock(mux_);
 
         uint64_t run_time_usec   = 0;
         uint64_t sleep_time_usec = 0;

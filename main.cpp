@@ -1,78 +1,56 @@
-// #include <functional>
-// #include <iostream>
-#include <thread/task_executor.h>
-#include <utils/function_traits.h>
-#include <utils/list.h>
-#include <utils/once_token.h>
+#include "thread/pool.h"
+#include "utils/logger.h"
+#include <atomic>
+#include <iostream>
+#include <signal.h>
+#include <unistd.h>
 #include <utils/utils.h>
 
-#include <thread>
-
+using namespace std;
 using namespace common_library;
-
-// #include <thread/semaphore.h>
-
-#include <unistd.h>
-
-class AAAAAAAAAAAAAAAAAAAAAAa {
-  public:
-    AAAAAAAAAAAAAAAAAAAAAAa() {}
-};
-void test()
-{
-    printf("%lld\n", get_current_milliseconds());
-}
 
 int main()
 {
-    // TaskCancelableImpl<int(int)> f([](int i) {
-    //   // return 0;
-    //   printf("%d\n", i);
+    signal(SIGINT, [](int) { exit(0); });
 
-    //   return 123;
-    // });
+    atomic_llong count(0);
+    ThreadPool   pool(10, ThreadPool::PRIORITY_HIGHEST, false);
 
-    // bool cancelable = f;
-    // printf("cancelable:%d\n", cancelable);
+    // Ticker ticker;
+    uint64_t tp1 = get_current_microseconds();
 
-    // int ii = f(2);
-    // printf("ii:%d\n", ii);
-    // f.Cancel();
-    // cancelable = f;
-    // printf("c222ancelable:%d\n", cancelable);
-    // f(1);
-    // std::thread([]() { test(); }).detach();
-    // std::thread([]() { test(); }).detach();
-    // std::thread([]() { test(); }).detach();
-    // std::thread([]() { test(); }).detach();
-    // std::thread([]() { test(); }).detach();
-    // std::thread([]() { test(); }).detach();
-    // std::thread([]() { test(); }).detach();
-    // std::thread([]() { test(); }).detach();
+    for (int i = 0; i < 1000 * 10000; ++i) {
+        pool.Async([&]() {
+            if (++count >= 1000 * 10000) {
+                uint64_t tp2 = get_current_microseconds();
+                std::cout << "执行1000万任务总共耗时:" << ((tp2 - tp1) / 1000)
+                          << "ms" << std::endl;
+            }
+        });
+    }
 
-    // sleep(11111111);
+    uint64_t tp3 = get_current_microseconds();
 
-    // List<int> oo;
-    //    oo.emplace_back(2);
-    // oo.emplace_back(1);
-    // int ii = 22314;
-    // oo.emplace_back(ii);
-    // oo.for_each([](int ia ){
-    //     printf("%d\n",ia);
-    // });
-    // printf("%d\n", oo[2]);s
+    std::cout << "1000万任务入队耗时:" << ((tp3 - tp1) / 1000) << "ms"
+              << std::endl;
 
-    ThreadLoadCounter c(100, 10 * 1000 * 1000);
+    uint64_t lastCount = 0, nowCount = 1;
 
-    c.Sleep();
-    usleep(4 * 1000 * 1000);
-    c.WakeUp();
-    uint64_t ii = 1*10000*10000;
-    while (ii--) {}
-    // usleep(3 * 1000 * 1000);
+    uint64_t tp4 = get_current_milliseconds();
 
-       usleep(10 * 1000 * 1000);
-    int aa = c.Load();
-    printf("aa:%d\n", aa);
+    pool.Start();
+    while (true) {
+        sleep(1);
+        nowCount = count.load();
+        std::cout << "每秒执行任务数:" << nowCount - lastCount << std::endl;
+        std::cout << "LOAD:" << pool.Load() << std::endl;
+        if (nowCount - lastCount == 0) {
+            break;
+        }
+        lastCount = nowCount;
+    }
+
+    pool.Shutdown();
+    pool.Wait();
     return 0;
 }

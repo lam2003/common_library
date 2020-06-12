@@ -1,5 +1,5 @@
-#ifndef COMMON_LIBRARY_TASK_H
-#define COMMON_LIBRARY_TASK_H
+#ifndef COMMON_LIBRARY_THREAD_TASK_H
+#define COMMON_LIBRARY_THREAD_TASK_H
 
 #include <utils/noncopyable.h>
 

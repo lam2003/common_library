@@ -1,5 +1,5 @@
-#ifndef COMMON_LIBRARY_SEMAPHORE_H
-#define COMMON_LIBRARY_SEMAPHORE_H
+#ifndef COMMON_LIBRARY_THREAD_SEMAPHORE_H
+#define COMMON_LIBRARY_THREAD_SEMAPHORE_H
 
 #include <condition_variable>
 #include <mutex>

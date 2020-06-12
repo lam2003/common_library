@@ -1,6 +1,7 @@
-#ifndef COMMON_LIBRARY_TASK_EXECUTOR_H
-#define COMMON_LIBRARY_TASK_EXECUTOR_H
+#ifndef COMMON_LIBRARY_THREAD_EXECUTOR_H
+#define COMMON_LIBRARY_THREAD_EXECUTOR_H
 
+#include <thread/group.h>
 #include <thread/load_counter.h>
 #include <thread/semaphore.h>
 #include <thread/task.h>
@@ -10,18 +11,12 @@ namespace common_library {
 
 class TaskExecutor : public ThreadLoadCounter {
   public:
-    TaskExecutor(uint64_t max_size          = 32,
-                 uint64_t max_duration_usec = 2 * 1000 * 1000)
-        : ThreadLoadCounter(max_size, max_duration_usec)
-    {
-    }
+    TaskExecutor()          = default;
     virtual ~TaskExecutor() = default;
 
     virtual Task::Ptr Async(TaskIn&& task, bool may_sync = true) = 0;
-    virtual Task::Ptr AsyncFirst(TaskIn&& task, bool may_sync = true)
-    {
-        return Async(std::move(task), may_sync);
-    }
+
+    virtual Task::Ptr AsyncFirst(TaskIn&& task, bool may_sync = true) = 0;
 
     void Sync(TaskIn&& task)
     {
