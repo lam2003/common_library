@@ -11,13 +11,17 @@ namespace common_library {
 
 class TaskExecutor : public ThreadLoadCounter {
   public:
+    typedef std::shared_ptr<TaskExecutor> Ptr;
+
     TaskExecutor()          = default;
     virtual ~TaskExecutor() = default;
 
+  public:
     virtual Task::Ptr Async(TaskIn&& task, bool may_sync = true) = 0;
 
     virtual Task::Ptr AsyncFirst(TaskIn&& task, bool may_sync = true) = 0;
 
+  public:
     void Sync(TaskIn&& task)
     {
         Semaphore             sem;
@@ -49,6 +53,12 @@ class TaskExecutor : public ThreadLoadCounter {
             sem.Wait();
         }
     }
+};
+
+class TaskExecutorGetter {
+  public:
+    TaskExecutorGetter()  = default;
+    ~TaskExecutorGetter() = default;
 };
 
 }  // namespace common_library

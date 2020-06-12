@@ -4,11 +4,12 @@
 
 namespace common_library {
 
-template <typename T> class TaskQueue {
+template <typename T> class TaskQueue final {
   public:
     TaskQueue()  = default;
     ~TaskQueue() = default;
 
+  public:
     template <typename Func> void AddTask(Func&& f)
     {
         {

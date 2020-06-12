@@ -10,10 +10,14 @@ namespace common_library {
 
 class ThreadLoadCounter {
   public:
+    ThreadLoadCounter()          = default;
+    virtual ~ThreadLoadCounter() = default;
+
+  public:
     virtual int Load() = 0;
 };
 
-class ThreadLoadCounterImpl : public ThreadLoadCounter {
+class ThreadLoadCounterImpl final : public ThreadLoadCounter {
   public:
     ThreadLoadCounterImpl(uint64_t max_size, uint32_t max_duration_usec)
     {
@@ -22,41 +26,9 @@ class ThreadLoadCounterImpl : public ThreadLoadCounter {
         max_size_          = max_size;
         max_duration_usec_ = max_duration_usec;
     }
-    ~ThreadLoadCounterImpl() {}
+    ~ThreadLoadCounterImpl() = default;
 
-    void Sleep()
-    {
-        std::unique_lock<std::mutex> lock(mux_);
-
-        sleep_ = true;
-
-        uint64_t now_usec      = get_current_microseconds();
-        uint64_t run_time_usec = now_usec - last_wake_time_usec_;
-        last_sleep_time_usec_  = now_usec;
-
-        time_lists_.emplace_back(run_time_usec, false);
-
-        if (time_lists_.size() > max_size_) {
-            time_lists_.pop_front();
-        }
-    }
-
-    void WakeUp()
-    {
-        std::unique_lock<std::mutex> lock(mux_);
-
-        sleep_ = false;
-
-        uint64_t now_usec        = get_current_microseconds();
-        uint64_t sleep_time_usec = now_usec - last_sleep_time_usec_;
-        last_wake_time_usec_     = now_usec;
-
-        time_lists_.emplace_back(sleep_time_usec, true);
-        if (time_lists_.size() > max_size_) {
-            time_lists_.pop_front();
-        }
-    }
-
+  public:
     int Load() override
     {
         std::unique_lock<std::mutex> lock(mux_);
@@ -104,6 +76,40 @@ class ThreadLoadCounterImpl : public ThreadLoadCounter {
         }
 
         return run_time_usec * 100 / total_time_usec;
+    }
+
+  public:
+    void Sleep()
+    {
+        std::unique_lock<std::mutex> lock(mux_);
+
+        sleep_ = true;
+
+        uint64_t now_usec      = get_current_microseconds();
+        uint64_t run_time_usec = now_usec - last_wake_time_usec_;
+        last_sleep_time_usec_  = now_usec;
+
+        time_lists_.emplace_back(run_time_usec, false);
+
+        if (time_lists_.size() > max_size_) {
+            time_lists_.pop_front();
+        }
+    }
+
+    void WakeUp()
+    {
+        std::unique_lock<std::mutex> lock(mux_);
+
+        sleep_ = false;
+
+        uint64_t now_usec        = get_current_microseconds();
+        uint64_t sleep_time_usec = now_usec - last_sleep_time_usec_;
+        last_wake_time_usec_     = now_usec;
+
+        time_lists_.emplace_back(sleep_time_usec, true);
+        if (time_lists_.size() > max_size_) {
+            time_lists_.pop_front();
+        }
     }
 
   private:

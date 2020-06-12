@@ -9,7 +9,7 @@
 
 namespace common_library {
 
-class ThreadGroup {
+class ThreadGroup final {
   public:
     ThreadGroup() = default;
     ~ThreadGroup()
@@ -17,6 +17,7 @@ class ThreadGroup {
         threads_.clear();
     }
 
+  public:
     template <typename Func> std::thread* CreateThread(Func&& f)
     {
         std::shared_ptr<std::thread> thread_new =

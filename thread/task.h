@@ -12,18 +12,18 @@ class TaskCancelable : public noncopyable {
   public:
     TaskCancelable()          = default;
     virtual ~TaskCancelable() = default;
-    virtual void Cancel()     = 0;
+
+  public:
+    virtual void Cancel() = 0;
 };
 
 template <typename T> class TaskCancelableImpl;
 
 template <typename Ret, typename... Args>
-class TaskCancelableImpl<Ret(Args...)> : public TaskCancelable {
+class TaskCancelableImpl<Ret(Args...)> final : public TaskCancelable {
   public:
     typedef std::shared_ptr<TaskCancelableImpl> Ptr;
     typedef std::function<Ret(Args...)>         FunctionType;
-
-    ~TaskCancelableImpl() = default;
 
     template <typename Func> TaskCancelableImpl(Func&& f)
     {
@@ -31,11 +31,15 @@ class TaskCancelableImpl<Ret(Args...)> : public TaskCancelable {
         weak_task_   = strong_task_;
     }
 
+    ~TaskCancelableImpl() = default;
+
+  public:
     void Cancel() override
     {
         strong_task_ = nullptr;
     }
 
+  public:
     // return cancelable
     operator bool()
     {

@@ -11,7 +11,8 @@
 #include <vector>
 
 namespace common_library {
-class ThreadPool : public TaskExecutor {
+
+class ThreadPool final : public TaskExecutor {
   public:
     enum Priority {
         PRIORITY_LOWEST = 0,
@@ -31,6 +32,21 @@ class ThreadPool : public TaskExecutor {
         }
     }
 
+    ~ThreadPool() = default;
+
+  public:
+    int Load() override
+    {
+        int total_load = 0;
+
+        for (int i = 0; i < thread_num_; i++) {
+            total_load += counters_[i]->Load();
+        }
+
+        return total_load / thread_num_;
+    }
+
+  public:
     Task::Ptr Async(TaskIn&& task, bool may_sync = true) override
     {
         if (may_sync && thread_group_.IsSelfThreadIn()) {
@@ -53,17 +69,6 @@ class ThreadPool : public TaskExecutor {
         Task::Ptr ptask = std::make_shared<Task>(std::move(task));
         queue_.AddTaskFirst(ptask);
         return ptask;
-    }
-
-    int Load() override
-    {
-        int total_load = 0;
-
-        for (int i = 0; i < thread_num_; i++) {
-            total_load += counters_[i]->Load();
-        }
-
-        return total_load / thread_num_;
     }
 
     void Start()
@@ -137,7 +142,6 @@ class ThreadPool : public TaskExecutor {
                 ptask = nullptr;
             }
             catch (std::exception& e) {
-                // TODO: add log
                 LOG_E << "thread pool execution task caught exception: "
                       << e.what();
             }

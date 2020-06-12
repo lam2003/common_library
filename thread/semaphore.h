@@ -8,14 +8,12 @@
 
 namespace common_library {
 
-class Semaphore {
+class Semaphore final {
   public:
-    Semaphore()
-    {
-        count_ = 0;
-    }
+    Semaphore()  = default;
     ~Semaphore() = default;
 
+  public:
     void Post(uint32_t n = 1)
     {
         std::unique_lock<std::mutex> lock(mux_);
@@ -39,7 +37,7 @@ class Semaphore {
     }
 
   private:
-    uint32_t                    count_;
+    uint32_t                    count_ = 0;
     std::mutex                  mux_;
     std::condition_variable_any cond_;
 };
