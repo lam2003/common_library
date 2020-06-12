@@ -10,8 +10,8 @@ namespace common_library {
 
 class TaskCancelable : public noncopyable {
   public:
-    TaskCancelable()          = default;
-    virtual ~TaskCancelable() = default;
+    TaskCancelable()  = default;
+    ~TaskCancelable() = default;
 
   public:
     virtual void Cancel() = 0;

@@ -16,7 +16,7 @@ template <typename T> class TaskQueue final {
     template <typename Func> void AddTask(Func&& f)
     {
         {
-            std::unique_lock<std::mutex> lock(mux_);
+            std::lock_guard<std::mutex> lock(mux_);
             tasks_.emplace_back(std::forward<Func>(f));
         }
         sem_.Post();
@@ -25,7 +25,7 @@ template <typename T> class TaskQueue final {
     template <typename Func> void AddTaskFirst(Func&& f)
     {
         {
-            std::unique_lock<std::mutex> lock(mux_);
+            std::lock_guard<std::mutex> lock(mux_);
             tasks_.emplace_front(std::forward<Func>(f));
         }
         sem_.Post();
@@ -40,7 +40,7 @@ template <typename T> class TaskQueue final {
     {
         sem_.Wait();
 
-        std::unique_lock<std::mutex> lock(mux_);
+        std::lock_guard<std::mutex> lock(mux_);
         if (tasks_.empty()) {
             return false;
         }
@@ -58,7 +58,7 @@ template <typename T> class TaskQueue final {
 
     uint64_t Size()
     {
-        std::unique_lock<std::mutex> lock(mux_);
+        std::lock_guard<std::mutex> lock(mux_);
         return tasks_.size();
     }
 

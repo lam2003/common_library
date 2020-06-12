@@ -13,8 +13,8 @@ class TaskExecutor : public ThreadLoadCounter {
   public:
     typedef std::shared_ptr<TaskExecutor> Ptr;
 
-    TaskExecutor()          = default;
-    virtual ~TaskExecutor() = default;
+    TaskExecutor()  = default;
+    ~TaskExecutor() = default;
 
   public:
     virtual Task::Ptr Async(TaskIn&& task, bool may_sync = true) = 0;

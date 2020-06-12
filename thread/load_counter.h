@@ -10,8 +10,8 @@ namespace common_library {
 
 class ThreadLoadCounter {
   public:
-    ThreadLoadCounter()          = default;
-    virtual ~ThreadLoadCounter() = default;
+    ThreadLoadCounter()  = default;
+    ~ThreadLoadCounter() = default;
 
   public:
     virtual int Load() = 0;
@@ -31,7 +31,7 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
   public:
     int Load() override
     {
-        std::unique_lock<std::mutex> lock(mux_);
+        std::lock_guard<std::mutex> lock(mux_);
 
         uint64_t run_time_usec   = 0;
         uint64_t sleep_time_usec = 0;
@@ -81,7 +81,7 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
   public:
     void Sleep()
     {
-        std::unique_lock<std::mutex> lock(mux_);
+        std::lock_guard<std::mutex> lock(mux_);
 
         sleep_ = true;
 
@@ -98,7 +98,7 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
 
     void WakeUp()
     {
-        std::unique_lock<std::mutex> lock(mux_);
+        std::lock_guard<std::mutex> lock(mux_);
 
         sleep_ = false;
 
