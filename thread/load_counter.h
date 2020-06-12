@@ -1,5 +1,5 @@
-#ifndef COMMON_LIBRARY_THREAD_LOAD_COUNTER_H
-#define COMMON_LIBRARY_THREAD_LOAD_COUNTER_H
+#ifndef COMMON_LIBRARY_LOAD_COUNTER_H
+#define COMMON_LIBRARY_LOAD_COUNTER_H
 
 #include <utils/list.h>
 #include <utils/utils.h>

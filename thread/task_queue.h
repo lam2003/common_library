@@ -1,3 +1,6 @@
+#ifndef COMMON_LIBRARY_TASK_QUEUE_H
+#define COMMON_LIBRARY_TASK_QUEUE_H
+
 #include <thread/semaphore.h>
 #include <thread/task.h>
 #include <utils/list.h>
@@ -66,3 +69,5 @@ template <typename T> class TaskQueue final {
 };
 
 }  // namespace common_library
+
+#endif

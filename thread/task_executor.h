@@ -1,5 +1,5 @@
-#ifndef COMMON_LIBRARY_THREAD_EXECUTOR_H
-#define COMMON_LIBRARY_THREAD_EXECUTOR_H
+#ifndef COMMON_LIBRARY_TASK_EXECUTOR_H
+#define COMMON_LIBRARY_TASK_EXECUTOR_H
 
 #include <thread/group.h>
 #include <thread/load_counter.h>

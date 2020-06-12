@@ -5,7 +5,7 @@
 
 namespace common_library {
 
-class OnceToken {
+class OnceToken final {
   public:
     typedef std::function<void()> Task;
     OnceToken(const Task& on_constructed, const Task& on_destructed = nullptr)

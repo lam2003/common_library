@@ -9,7 +9,7 @@ namespace common_library {
 
 template <typename T> class List;
 
-template <typename T> class ListNode {
+template <typename T> class ListNode final {
   public:
     friend class List<T>;
 
@@ -18,12 +18,14 @@ template <typename T> class ListNode {
     {
     }
 
+    ~ListNode() = default;
+
   private:
     T         data_;
     ListNode* next_ = nullptr;
 };
 
-template <typename T> class List {
+template <typename T> class List final {
   public:
     typedef ListNode<T> NodeType;
 
@@ -34,6 +36,9 @@ template <typename T> class List {
         swap(other);
     }
 
+    ~List() = default;
+
+  public:
     template <typename... Args> void emplace_front(Args&&... args)
     {
         NodeType* node = new NodeType(std::forward<Args>(args)...);

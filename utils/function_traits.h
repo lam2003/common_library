@@ -13,10 +13,10 @@ template <typename Ret, typename... Args> struct function_traits<Ret(Args...)>
 {
     enum { arity = sizeof...(Args) };
 
-    typedef Ret function_type(Args...);
-    typedef Ret return_type;
-    using stl_function_type = std::function<Ret(Args...)>;
-    typedef Ret (*pointer)(Args...);
+    typedef Ret FunctionType(Args...);
+    typedef Ret ReturnType;
+    using STLFunctionTyoe = std::function<Ret(Args...)>;
+    typedef Ret (*Pointer)(Args...);
 
     template <size_t I> struct args
     {
@@ -29,13 +29,13 @@ template <typename Ret, typename... Args> struct function_traits<Ret(Args...)>
 
 // 函数指针
 template <typename Ret, typename... Args>
-struct function_traits<Ret (*)(Args...)> : function_traits<Ret(Args...)>
+struct function_traits<Ret (*)(Args...)> final : function_traits<Ret(Args...)>
 {
 };
 
 // stl std::function
 template <typename Ret, typename... Args>
-struct function_traits<std::function<Ret(Args...)>>
+struct function_traits<std::function<Ret(Args...)>> final
     : function_traits<Ret(Args...)>
 {
 };
@@ -43,7 +43,7 @@ struct function_traits<std::function<Ret(Args...)>>
 // 成员函数
 #define FUNCTION_TRAITS(...)                                                   \
     template <typename ReturnType, typename Class, typename... Args>           \
-    struct function_traits<ReturnType (Class::*)(Args...) __VA_ARGS__>         \
+    struct function_traits<ReturnType (Class::*)(Args...) __VA_ARGS__> final   \
         : function_traits<ReturnType(Args...)>                                 \
     {                                                                          \
     };
@@ -55,7 +55,7 @@ FUNCTION_TRAITS(const volatile)
 
 // 对象函数
 template <typename Callable>
-struct function_traits : function_traits<decltype(&Callable::operator())>
+struct function_traits final : function_traits<decltype(&Callable::operator())>
 {
 };
 
