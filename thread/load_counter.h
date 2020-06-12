@@ -19,12 +19,11 @@ class ThreadLoadCounter {
 
 class ThreadLoadCounterImpl final : public ThreadLoadCounter {
   public:
-    ThreadLoadCounterImpl(uint64_t max_size, uint32_t max_duration_usec)
+    ThreadLoadCounterImpl(uint64_t max_size, uint32_t max_duration_us)
     {
-        last_sleep_time_usec_ = last_wake_time_usec_ =
-            get_current_microseconds();
-        max_size_          = max_size;
-        max_duration_usec_ = max_duration_usec;
+        last_sleep_time_us_ = last_wake_time_us_ = get_current_microseconds();
+        max_size_                                = max_size;
+        max_duration_us_                         = max_duration_us;
     }
     ~ThreadLoadCounterImpl() = default;
 
@@ -33,49 +32,49 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
     {
         std::lock_guard<std::mutex> lock(mux_);
 
-        uint64_t run_time_usec   = 0;
-        uint64_t sleep_time_usec = 0;
+        uint64_t run_time_us   = 0;
+        uint64_t sleep_time_us = 0;
 
         time_lists_.for_each([&](const TimeRecord& item) {
             if (item.sleep_) {
-                sleep_time_usec += item.ts_usec_;
+                sleep_time_us += item.ts_us_;
             }
             else {
-                run_time_usec += item.ts_usec_;
+                run_time_us += item.ts_us_;
             }
         });
 
-        uint64_t now_usec = get_current_microseconds();
+        uint64_t now_us = get_current_microseconds();
         if (sleep_) {
-            sleep_time_usec += (now_usec - last_sleep_time_usec_);
+            sleep_time_us += (now_us - last_sleep_time_us_);
         }
         else {
-            run_time_usec += (now_usec - last_wake_time_usec_);
+            run_time_us += (now_us - last_wake_time_us_);
         }
 
-        uint64_t total_time_usec = sleep_time_usec + run_time_usec;
+        uint64_t total_time_us = sleep_time_us + run_time_us;
 
         // 拟合统计窗口
-        while (!time_lists_.empty() && (total_time_usec > max_duration_usec_ ||
+        while (!time_lists_.empty() && (total_time_us > max_duration_us_ ||
                                         time_lists_.size() > max_size_)) {
             const TimeRecord& item = time_lists_.front();
             if (item.sleep_) {
-                sleep_time_usec -= item.ts_usec_;
+                sleep_time_us -= item.ts_us_;
             }
             else {
-                run_time_usec -= item.ts_usec_;
+                run_time_us -= item.ts_us_;
             }
 
-            total_time_usec -= item.ts_usec_;
+            total_time_us -= item.ts_us_;
             time_lists_.pop_front();
         }
 
         // 避免n/0问题
-        if (total_time_usec == 0) {
+        if (total_time_us == 0) {
             return 0;
         }
 
-        return run_time_usec * 100 / total_time_usec;
+        return run_time_us * 100 / total_time_us;
     }
 
   public:
@@ -85,11 +84,11 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
 
         sleep_ = true;
 
-        uint64_t now_usec      = get_current_microseconds();
-        uint64_t run_time_usec = now_usec - last_wake_time_usec_;
-        last_sleep_time_usec_  = now_usec;
+        uint64_t now_us      = get_current_microseconds();
+        uint64_t run_time_us = now_us - last_wake_time_us_;
+        last_sleep_time_us_  = now_us;
 
-        time_lists_.emplace_back(run_time_usec, false);
+        time_lists_.emplace_back(run_time_us, false);
 
         if (time_lists_.size() > max_size_) {
             time_lists_.pop_front();
@@ -102,11 +101,11 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
 
         sleep_ = false;
 
-        uint64_t now_usec        = get_current_microseconds();
-        uint64_t sleep_time_usec = now_usec - last_sleep_time_usec_;
-        last_wake_time_usec_     = now_usec;
+        uint64_t now_us        = get_current_microseconds();
+        uint64_t sleep_time_us = now_us - last_sleep_time_us_;
+        last_wake_time_us_     = now_us;
 
-        time_lists_.emplace_back(sleep_time_usec, true);
+        time_lists_.emplace_back(sleep_time_us, true);
         if (time_lists_.size() > max_size_) {
             time_lists_.pop_front();
         }
@@ -115,20 +114,20 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
   private:
     struct TimeRecord
     {
-        TimeRecord(uint64_t ts_usec, bool sleep)
+        TimeRecord(uint64_t ts_us, bool sleep)
         {
-            ts_usec_ = ts_usec;
-            sleep_   = sleep;
+            ts_us_ = ts_us;
+            sleep_ = sleep;
         }
-        uint64_t ts_usec_;
+        uint64_t ts_us_;
         bool     sleep_;
     };
 
   private:
-    uint64_t         last_sleep_time_usec_;
-    uint64_t         last_wake_time_usec_;
+    uint64_t         last_sleep_time_us_;
+    uint64_t         last_wake_time_us_;
     uint64_t         max_size_;
-    uint64_t         max_duration_usec_;
+    uint64_t         max_duration_us_;
     bool             sleep_ = false;
     List<TimeRecord> time_lists_;
     std::mutex       mux_;

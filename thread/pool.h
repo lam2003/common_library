@@ -43,6 +43,10 @@ class ThreadPool final : public TaskExecutor {
             total_load += counters_[i]->Load();
         }
 
+        if (thread_num_ == 0) {
+            return 0;
+        }
+
         return total_load / thread_num_;
     }
 
@@ -142,8 +146,7 @@ class ThreadPool final : public TaskExecutor {
                 ptask = nullptr;
             }
             catch (std::exception& e) {
-                LOG_E << "thread pool execution task caught exception: "
-                      << e.what();
+                LOG_E << "thread pool caught an exception: " << e.what();
             }
         }
     }
