@@ -1,5 +1,3 @@
-
-
 #include <atomic>
 #include <iostream>
 #include <signal.h>
