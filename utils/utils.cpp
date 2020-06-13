@@ -5,6 +5,7 @@
 #include <chrono>
 #include <thread>
 
+#include <linux/limits.h>
 #include <unistd.h>
 
 namespace common_library {
@@ -51,6 +52,26 @@ uint64_t get_current_milliseconds()
 {
     static bool flag = init_update_ts_thread();
     return s_now_milliseconds.load(std::memory_order_acquire);
+}
+
+std::string get_exe_path()
+{
+    std::string path;
+    char        buf[PATH_MAX * 2 + 1] = {0};
+    int         n = readlink("/proc/self/exe", buf, sizeof(buf));
+    if (n <= 0) {
+        path = "./";
+    }
+    else {
+        path = buf;
+    }
+    return path;
+}
+
+std::string get_exe_name()
+{
+    std::string path = get_exe_path();
+    return path.substr(path.rfind("/") + 1);
 }
 
 }  // namespace common_library

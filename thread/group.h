@@ -4,6 +4,7 @@
 #include <utils/list.h>
 
 #include <memory>
+#include <stdexcept>
 #include <thread>
 #include <unordered_map>
 

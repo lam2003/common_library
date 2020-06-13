@@ -1,7 +1,6 @@
 #ifndef COMMON_LIBRARY_TASK_EXECUTOR_H
 #define COMMON_LIBRARY_TASK_EXECUTOR_H
 
-#include <thread/group.h>
 #include <thread/load_counter.h>
 #include <thread/semaphore.h>
 #include <thread/task.h>
@@ -17,8 +16,8 @@ class TaskExecutor : public ThreadLoadCounter {
   public:
     typedef std::shared_ptr<TaskExecutor> Ptr;
 
-    TaskExecutor()  = default;
-    ~TaskExecutor() = default;
+    TaskExecutor()          = default;
+    virtual ~TaskExecutor() = default;
 
   public:
     virtual Task::Ptr Async(TaskIn&& task, bool may_sync = true) = 0;
@@ -61,8 +60,8 @@ class TaskExecutor : public ThreadLoadCounter {
 
 class TaskExecutorGetter {
   public:
-    TaskExecutorGetter()  = default;
-    ~TaskExecutorGetter() = default;
+    TaskExecutorGetter()          = default;
+    virtual ~TaskExecutorGetter() = default;
 
   public:
     TaskExecutor::Ptr GetExecutor()
