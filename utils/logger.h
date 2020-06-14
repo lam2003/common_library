@@ -1,30 +1,57 @@
 #ifndef COMMON_LIBRARY_LOGGER_H
 #define COMMON_LIBRARY_LOGGER_H
 
+#include <thread/semaphore.h>
+#include <utils/list.h>
 #include <utils/noncopyable.h>
 
+#include <functional>
 #include <iostream>
-#include <sstream>
+#include <map>
 #include <memory>
+#include <sstream>
+#include <thread>
 
 namespace common_library {
 
+class LogContext;
+class LogWriter;
+class LogChannel;
 typedef enum { LTRACE, LDEBUG, LINFO, LWARN, LERROR } LogLevel;
 
-class AsyncLogWriter;
-
-class Logger final : public noncopyable,
-                     public std::enable_shared_from_this<Logger> {
+class Logger final : public noncopyable {
   public:
-    friend class AsyncLogWriter;
+    friend class LogWriter;
 
-    ~Logger();
+    ~Logger() = default;
+
     static Logger& Instance();
+
+  public:
+    void AddChannel(const std::shared_ptr<LogChannel>& channel);
+
+    void RemoveChannel(const std::string& name);
+
+    std::shared_ptr<LogChannel> GetChannel(const std::string& name);
+
+    const std::string& GetLoggerName() const;
+
+    void SetWriter(std::shared_ptr<LogWriter> writer);
+
+    void SetLevel(LogLevel level);
+
+    void Write(const std::shared_ptr<LogContext>& pctx);
 
   private:
     Logger(const std::string& logger_name);
 
   private:
+    void write_channels(const std::shared_ptr<LogContext> pctx);
+
+  private:
+    std::map<std::string, std::shared_ptr<LogChannel>> channels_;
+    std::string                                        logger_name_;
+    std::shared_ptr<LogWriter>                         writer_;
 };
 
 class LogContext final : public std::ostringstream {
@@ -33,40 +60,137 @@ class LogContext final : public std::ostringstream {
                const char* file,
                const char* function,
                int         line);
+
     ~LogContext() = default;
 
-  private:
-    LogLevel    level_;
-    int         line_;
-    std::string file_;
-    std::string function_;
-    timeval     tv_;
+  public:
+    LogLevel    level;
+    int         line;
+    std::string file;
+    std::string function;
+    timeval     tv;
 };
 
 class LogWriter : public noncopyable {
   public:
-    LogWriter();
-    virtual ~LogWriter();
+    LogWriter(Logger& logger);
+    virtual ~LogWriter() = default;
 
   public:
-    virtual void Write(const LogContext& ctx) = 0;
-};
+    virtual void Write(const std::shared_ptr<LogContext>& pctx) = 0;
 
-class AsyncLogWrite final : public LogWriter {
-  public:
-    AsyncLogWrite();
-    ~AsyncLogWrite();
+  protected:
+    void write_to_channels(const std::shared_ptr<LogContext>& pctx);
 
   private:
-    void Write(const LogContext& ctx) override;
+    Logger& logger_;
 };
 
-// TODO implement logger
-#define LOG_T std::cout
-#define LOG_D std::cout
-#define LOG_I std::cout
-#define LOG_W std::cout
-#define LOG_E std::cout
+class AsyncLogWriter final : public LogWriter {
+  public:
+    AsyncLogWriter(Logger& logger);
+    ~AsyncLogWriter();
+
+  public:
+    void Write(const std::shared_ptr<LogContext>& pctx) override;
+
+  private:
+    void run();
+    void flush_all();
+
+  private:
+    volatile bool                     running_;
+    std::thread*                      thread_;
+    Semaphore                         sem_;
+    List<std::shared_ptr<LogContext>> pctxs_;
+    std::mutex                        mux_;
+};
+
+class LogChannel : public noncopyable {
+  public:
+    LogChannel(const std::string& name, LogLevel level = LTRACE);
+
+    virtual ~LogChannel() = default;
+
+  public:
+    virtual void Write(const Logger&                      logger,
+                       const std::shared_ptr<LogContext>& pctx) = 0;
+
+    const std::string& Name() const;
+
+    void SetLevel(LogLevel level);
+
+  protected:
+    virtual void format(const Logger&                      logger,
+                        std::ostream&                      ostr,
+                        const std::shared_ptr<LogContext>& pctx,
+                        bool                               enable_color = true,
+                        bool enable_detail                              = true);
+
+  protected:
+    std::string name_;
+    LogLevel    level_;
+};
+
+class ConsoleChannel final : public LogChannel {
+  public:
+    ConsoleChannel(const std::string& name  = "ConsoleChannel",
+                   LogLevel           level = LTRACE);
+
+    ~ConsoleChannel() = default;
+
+  public:
+    void Write(const Logger&                      logger,
+               const std::shared_ptr<LogContext>& pctx) override;
+};
+
+class LogContextCapturer final {
+  public:
+    LogContextCapturer(Logger&     logger,
+                       LogLevel    level,
+                       const char* file,
+                       const char* function,
+                       int         line);
+
+    LogContextCapturer(const LogContextCapturer& that);
+
+    ~LogContextCapturer();
+
+  public:
+    // 输入std::endl时直接输出结果
+    LogContextCapturer& operator<<(std::ostream& (*f)(std::ostream&));
+
+    template <typename T> LogContextCapturer& operator<<(T&& data)
+    {
+        if (!pctx_) {
+            return *this;
+        }
+        (*pctx_) << std::forward<T>(data);
+        return *this;
+    }
+
+    void Clear();
+
+  private:
+    std::shared_ptr<LogContext> pctx_;
+    Logger&                     logger_;
+};
+
+#define LOG_T                                                                  \
+    LogContextCapturer(Logger::Instance(), LTRACE, __FILE__, __FUNCTION__,     \
+                       __LINE__)
+#define LOG_D                                                                  \
+    LogContextCapturer(Logger::Instance(), LDEBUG, __FILE__, __FUNCTION__,     \
+                       __LINE__)
+#define LOG_I                                                                  \
+    LogContextCapturer(Logger::Instance(), LINFO, __FILE__, __FUNCTION__,      \
+                       __LINE__)
+#define LOG_W                                                                  \
+    LogContextCapturer(Logger::Instance(), LWARN, __FILE__, __FUNCTION__,      \
+                       __LINE__)
+#define LOG_E                                                                  \
+    LogContextCapturer(Logger::Instance(), LERROR, __FILE__, __FUNCTION__,     \
+                       __LINE__)
 
 }  // namespace common_library
 

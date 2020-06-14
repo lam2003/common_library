@@ -18,6 +18,8 @@ uint64_t get_current_microseconds();
 
 uint64_t get_current_milliseconds();
 
+std::string print_time(const timeval& tv);
+
 std::string get_exe_path();
 
 std::string get_exe_name();

@@ -29,7 +29,10 @@ template <typename T> class List final {
   public:
     typedef ListNode<T> NodeType;
 
-    List() {}
+    List()
+    {
+        clear();
+    }
 
     List(List&& other)
     {

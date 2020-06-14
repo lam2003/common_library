@@ -54,6 +54,18 @@ uint64_t get_current_milliseconds()
     return s_now_milliseconds.load(std::memory_order_acquire);
 }
 
+std::string print_time(const timeval& tv)
+{
+    time_t sec = tv.tv_sec;
+    tm*    tm  = localtime(&sec);
+
+    char buf[128];
+    snprintf(buf, sizeof(buf), "%d-%02d-%02d %02d:%02d:%02d.%03d",
+             1900 + tm->tm_year, 1 + tm->tm_mon, tm->tm_mday, tm->tm_hour,
+             tm->tm_min, tm->tm_sec, (int)(tv.tv_usec / 1000));
+    return buf;
+}
+
 std::string get_exe_path()
 {
     std::string path;
