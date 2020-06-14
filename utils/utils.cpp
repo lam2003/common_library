@@ -87,8 +87,7 @@ std::string get_exe_name()
     return path.substr(path.rfind("/") + 1);
 }
 
-bool set_thread_priority(ThreadPriority priority = TPRIORITY_NORMAL,
-                         pthread_t      tid      = 0)
+bool set_thread_priority(ThreadPriority priority, pthread_t tid)
 {
     static int min = sched_get_priority_min(SCHED_OTHER);
     if (min == -1) {

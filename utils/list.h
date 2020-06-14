@@ -29,17 +29,17 @@ template <typename T> class List final {
   public:
     typedef ListNode<T> NodeType;
 
-    List()
+    List() {}
+
+    List(List&& that)
+    {
+        swap(that);
+    }
+
+    ~List()
     {
         clear();
     }
-
-    List(List&& other)
-    {
-        swap(other);
-    }
-
-    ~List() = default;
 
   public:
     template <typename... Args> void emplace_front(Args&&... args)
@@ -73,15 +73,14 @@ template <typename T> class List final {
         if (!front_) {
             return;
         }
-        else {
-            NodeType* node = front_;
-            front_         = node->next_;
-            delete node;
-            if (!front_) {
-                tail_ = nullptr;
-            }
-            --size_;
+
+        NodeType* node = front_;
+        front_         = front_->next_;
+        delete node;
+        if (!front_) {
+            tail_ = nullptr;
         }
+        --size_;
     }
 
     void clear()
@@ -98,12 +97,12 @@ template <typename T> class List final {
         size_          = 0;
     }
 
-    T& front()
+    T& front() const
     {
         return front_->data_;
     }
 
-    T& back()
+    T& back() const
     {
         return tail_->data_;
     }
@@ -117,21 +116,21 @@ template <typename T> class List final {
         }
     }
 
-    void swap(List& other)
+    void swap(List& that)
     {
         NodeType* tmp_node;
 
-        tmp_node     = front_;
-        front_       = other.front_;
-        other.front_ = tmp_node;
+        tmp_node    = front_;
+        front_      = that.front_;
+        that.front_ = tmp_node;
 
-        tmp_node    = tail_;
-        tail_       = other.tail_;
-        other.tail_ = tmp_node;
+        tmp_node   = tail_;
+        tail_      = that.tail_;
+        that.tail_ = tmp_node;
 
         uint64_t tmp_size = size_;
-        size_             = other.size_;
-        other.size_       = tmp_size;
+        size_             = that.size_;
+        that.size_        = tmp_size;
     }
 
     bool empty()
@@ -139,22 +138,22 @@ template <typename T> class List final {
         return size_ == 0;
     }
 
-    void append(List& other)
+    void append(List& that)
     {
-        if (other.empty()) {
+        if (that.empty()) {
             return;
         }
         if (tail_) {
-            tail_->next_ = other.front_;
+            tail_->next_ = that.front_;
         }
         else {
-            front_ = other.front_;
+            front_ = that.front_;
         }
 
-        tail_ = other.tail_;
-        size_ += other.size_;
-        other.front_ = other.tail_ = nullptr;
-        other.size_                = 0;
+        tail_ = that.tail_;
+        size_ += that.size_;
+        that.front_ = that.tail_ = nullptr;
+        that.size_               = 0;
     }
 
     T& operator[](uint64_t pos)

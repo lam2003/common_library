@@ -51,11 +51,6 @@ template <typename T> class TaskQueue final {
         return true;
     }
 
-    void Post(int n)
-    {
-        sem_.Post(n);
-    }
-
     uint64_t Size()
     {
         std::lock_guard<std::mutex> lock(mux_);

@@ -24,7 +24,11 @@ class ThreadPool final : public TaskExecutor {
         }
     }
 
-    ~ThreadPool() = default;
+    ~ThreadPool()
+    {
+        Shutdown();
+        Wait();
+    }
 
   public:
     int Load() override
@@ -69,6 +73,9 @@ class ThreadPool final : public TaskExecutor {
 
     void Start()
     {
+        if (thread_num_ <= 0)
+            return;
+
         int total = thread_num_ - thread_group_.Size();
         counters_.reserve(total);
 
@@ -100,7 +107,7 @@ class ThreadPool final : public TaskExecutor {
         set_thread_priority(priority_);
 
         Task::Ptr                              ptask = nullptr;
-        std::shared_ptr<ThreadLoadCounterImpl> counter =
+        std::shared_ptr<ThreadLoadCounterImpl> &counter =
             counters_[counter_index];
 
         while (true) {

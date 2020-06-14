@@ -1,9 +1,10 @@
+#include "thread/pool.h"
+#include "utils//logger.h"
+#include "utils/time_ticker.h"
 #include <atomic>
 #include <iostream>
 #include <signal.h>
 #include <unistd.h>
-
-#include "thread/pool.h"
 
 using namespace std;
 using namespace common_library;
@@ -11,40 +12,35 @@ using namespace common_library;
 int main()
 {
     signal(SIGINT, [](int) { exit(0); });
+    //初始化日志系统
+    Logger::Instance().AddChannel(std::make_shared<ConsoleChannel>());
+    Logger::Instance().SetWriter(std::make_shared<AsyncLogWriter>(Logger::Instance()));
 
     atomic_llong count(0);
-    ThreadPool   pool(1, ThreadPool::PRIORITY_HIGHEST, false);
+    ThreadPool   pool(1, TPRIORITY_HIGHEST, false);
 
-    uint64_t tp1 = get_current_milliseconds();
-    uint64_t tp2, tp3, tp4;
-
+    Ticker ticker;
     for (int i = 0; i < 1000 * 10000; ++i) {
         pool.Async([&]() {
             if (++count >= 1000 * 10000) {
-                tp4 = get_current_milliseconds();
-                LOG_I << "执行1000万任务总共耗时:" << (tp4 - tp3) << "ms"
-                      << endl;
+                LOG_I << "执行1000万任务总共耗时:" << ticker.ElapsedTimeMS()
+                      << "ms";
             }
         });
     }
-    tp2 = get_current_milliseconds();
-    LOG_I << "1000万任务入队耗时:" << (tp2 - tp1) << "ms" << endl;
+    LOG_I << "1000万任务入队耗时:" << ticker.ElapsedTimeMS() << "ms" << endl;
     uint64_t lastCount = 0, nowCount = 1;
-
-    tp3 = get_current_milliseconds();
+    ticker.Reset();
     //此处才开始启动线程
     pool.Start();
     while (true) {
         sleep(1);
         nowCount = count.load();
-        LOG_I << "每秒执行任务数:" << nowCount - lastCount << endl;
+        LOG_I << "每秒执行任务数:" << nowCount - lastCount;
         if (nowCount - lastCount == 0) {
             break;
         }
         lastCount = nowCount;
     }
-
-    pool.Shutdown();
-    pool.Wait();
     return 0;
 }

@@ -32,7 +32,8 @@ enum ThreadPriority {
     TPRIORITY_HIGHEST
 };
 
-bool set_thread_priority(ThreadPriority priority);
+bool set_thread_priority(ThreadPriority priority = TPRIORITY_NORMAL,
+                         pthread_t      tid      = 0);
 
 }  // namespace common_library
 

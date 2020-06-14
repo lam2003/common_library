@@ -16,14 +16,13 @@ class Semaphore final {
   public:
     void Post(uint32_t n = 1)
     {
-       // std::lock_guard 的性能比std::unique_lock好
-        std::lock_guard<std::mutex> lock(mux_);
+        std::unique_lock<std::mutex> lock(mux_);
         count_ += n;
-        if (n > 1) {
-            cond_.notify_all();
+        if (n == 1) {
+            cond_.notify_one();
         }
         else {
-            cond_.notify_one();
+            cond_.notify_all();
         }
     }
 
