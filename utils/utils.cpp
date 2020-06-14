@@ -6,6 +6,7 @@
 #include <thread>
 
 #include <linux/limits.h>
+#include <sched.h>
 #include <unistd.h>
 
 namespace common_library {
@@ -25,7 +26,7 @@ static std::atomic<uint64_t>
 static inline bool init_update_ts_thread()
 {
     // C++11局部静态变量构造是线程安全的
-    static std::thread update_ts_thread([]() {
+    static std::thread s_update_ts_thread([]() {
         uint64_t now_microseconds;
         while (true) {
             now_microseconds = get_current_microseconds_origin();
@@ -37,20 +38,20 @@ static inline bool init_update_ts_thread()
         }
     });
 
-    static OnceToken once_token([&]() { update_ts_thread.detach(); });
+    static OnceToken s_once_token([&]() { s_update_ts_thread.detach(); });
 
     return true;
 }
 
 uint64_t get_current_microseconds()
 {
-    static bool flag = init_update_ts_thread();
+    static bool s_flag = init_update_ts_thread();
     return s_now_microseconds.load(std::memory_order_acquire);
 }
 
 uint64_t get_current_milliseconds()
 {
-    static bool flag = init_update_ts_thread();
+    static bool s_flag = init_update_ts_thread();
     return s_now_milliseconds.load(std::memory_order_acquire);
 }
 
@@ -84,6 +85,30 @@ std::string get_exe_name()
 {
     std::string path = get_exe_path();
     return path.substr(path.rfind("/") + 1);
+}
+
+bool set_thread_priority(ThreadPriority priority = TPRIORITY_NORMAL,
+                         pthread_t      tid      = 0)
+{
+    static int min = sched_get_priority_min(SCHED_OTHER);
+    if (min == -1) {
+        return false;
+    }
+    static int max = sched_get_priority_max(SCHED_OTHER);
+    if (max == -1) {
+        return false;
+    }
+
+    static int priorities[] = {min, min + (max - min) / 4,
+                               min + (max - min) / 2, min + (max - min) * 3 / 4,
+                               max};
+
+    if (tid == 0) {
+        tid = pthread_self();
+    }
+    struct sched_param params;
+    params.sched_priority = priorities[priority];
+    return pthread_setschedparam(tid, SCHED_OTHER, &params) == 0;
 }
 
 }  // namespace common_library

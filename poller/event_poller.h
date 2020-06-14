@@ -1,8 +1,8 @@
 #ifndef COMMON_LIBRARY_EVENT_POLLER_H
 #define COMMON_LIBRARY_EVENT_POLLER_H
 
-#include <thread/pool.h>
 #include <thread/task_executor.h>
+#include <utils/utils.h>
 
 namespace common_library {
 class EventPoller final : public TaskExecutor,
@@ -17,10 +17,10 @@ class EventPoller final : public TaskExecutor,
     Task::Ptr AsyncFirst(TaskIn&& task, bool may_sync = true) override;
 
   private:
-    EventPoller(ThreadPool::Priority priority);
+    EventPoller(ThreadPriority priority);
 
   private:
-    ThreadPool::Priority priority_;
+    ThreadPriority priority_;
 };
 }  // namespace common_library
 

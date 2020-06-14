@@ -5,8 +5,7 @@
 #include <thread/task_executor.h>
 #include <thread/task_queue.h>
 #include <utils/logger.h>
-
-#include <sched.h>
+#include <utils/utils.h>
 
 #include <vector>
 
@@ -14,16 +13,9 @@ namespace common_library {
 
 class ThreadPool final : public TaskExecutor {
   public:
-    enum Priority {
-        PRIORITY_LOWEST = 0,
-        PRIORITY_LOW,
-        PRIORITY_NORMAL,
-        PRIORITY_HIGH,
-        PRIORITY_HIGHEST
-    };
-    ThreadPool(int      thread_num = 1,
-               Priority priority   = PRIORITY_HIGHEST,
-               bool     auto_run   = true)
+    ThreadPool(int            thread_num = 1,
+               ThreadPriority priority   = TPRIORITY_HIGHEST,
+               bool           auto_run   = true)
     {
         thread_num_ = thread_num;
         priority_   = priority;
@@ -102,34 +94,10 @@ class ThreadPool final : public TaskExecutor {
         thread_group_.JoinAll();
     }
 
-    static bool SetPriority(Priority priority = PRIORITY_NORMAL,
-                            std::thread::native_handle_type tid = 0)
-    {
-        static int min = sched_get_priority_min(SCHED_OTHER);
-        if (min == -1) {
-            return false;
-        }
-        static int max = sched_get_priority_max(SCHED_OTHER);
-        if (max == -1) {
-            return false;
-        }
-
-        static int priorities[] = {min, min + (max - min) / 4,
-                                   min + (max - min) / 2,
-                                   min + (max - min) * 3 / 4, max};
-
-        if (tid == 0) {
-            tid = pthread_self();
-        }
-        struct sched_param params;
-        params.sched_priority = priorities[priority];
-        return pthread_setschedparam(tid, SCHED_OTHER, &params) == 0;
-    }
-
   private:
     void run(int counter_index)
     {
-        SetPriority(priority_);
+        set_thread_priority(priority_);
 
         Task::Ptr                              ptask = nullptr;
         std::shared_ptr<ThreadLoadCounterImpl> counter =
@@ -153,7 +121,7 @@ class ThreadPool final : public TaskExecutor {
 
   private:
     int                                                 thread_num_;
-    Priority                                            priority_;
+    ThreadPriority                                      priority_;
     ThreadGroup                                         thread_group_;
     std::vector<std::shared_ptr<ThreadLoadCounterImpl>> counters_;
     TaskQueue<Task::Ptr>                                queue_;

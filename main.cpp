@@ -10,22 +10,26 @@
 #include <thread/task.h>
 #include <thread/task_executor.h>
 #include <thread/task_queue.h>
+#include <typeinfo>
 #include <unistd.h>
 #include <utils/function_traits.h>
 #include <utils/list.h>
 #include <utils/once_token.h>
 #include <utils/utils.h>
 
+#include <iostream>
+
 using namespace std;
 using namespace common_library;
 
-void test()
-{
-    throw std::runtime_error("fuck you");
-}
 int main()
 {
-    test();
+    Logger::Instance().SetWriter(
+        std::make_shared<AsyncLogWriter>(Logger::Instance()));
+    Logger::Instance().AddChannel(std::make_shared<ConsoleChannel>("test",LERROR));
 
+    std::string temp = get_exe_path();
+
+    LOG_E << temp;
     return 0;
 }

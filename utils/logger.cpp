@@ -5,9 +5,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <iostream>
+
 namespace common_library {
 
-static const char* LOG_CONST_TABLE[][3] = {
+static const char* s_log_const_table[][3] = {
     {"\033[44;37m", "\033[34m", "T"},   // 蓝底灰字，黑底蓝字
     {"\033[42;37m", "\033[32m", "D"},   // 绿底灰字，黑底绿字
     {"\033[46;37m", "\033[36m", "I"},   // 天蓝底灰字，黑底天蓝字
@@ -170,10 +172,10 @@ void LogChannel::format(const Logger&                      logger,
     }
 
     if (enable_color) {
-        ost << LOG_CONST_TABLE[pctx->level][1];
+        ost << s_log_const_table[pctx->level][1];
     }
 
-    ost << print_time(pctx->tv) << " " << LOG_CONST_TABLE[pctx->level][2]
+    ost << print_time(pctx->tv) << " " << s_log_const_table[pctx->level][2]
         << " ";
 
     if (enable_detail) {

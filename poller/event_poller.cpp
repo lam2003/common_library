@@ -2,7 +2,7 @@
 
 namespace common_library {
 
-EventPoller::EventPoller(ThreadPool::Priority priority)
+EventPoller::EventPoller(ThreadPriority priority)
 {
     priority_ = priority;
 }

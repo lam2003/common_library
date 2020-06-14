@@ -6,7 +6,6 @@
 #include <utils/noncopyable.h>
 
 #include <functional>
-#include <iostream>
 #include <map>
 #include <memory>
 #include <sstream>
