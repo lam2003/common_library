@@ -6,7 +6,7 @@
 
 namespace common_library {
 
-int SocketUtils::SetNonBlocked(int fd, bool non_blocked)
+int set_socket_non_blocked(int fd, bool non_blocked)
 {
     int opt = non_blocked;
 

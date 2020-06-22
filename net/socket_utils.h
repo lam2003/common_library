@@ -3,10 +3,7 @@
 
 namespace common_library {
 
-class SocketUtils {
-  public:
-    static int SetNonBlocked(int fd, bool nonblocked = true);
-};
+int set_socket_non_blocked(int fd, bool nonblocked = true);
 
 }  // namespace common_library
 

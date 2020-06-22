@@ -24,8 +24,8 @@ namespace common_library {
 EventPoller::EventPoller(ThreadPriority priority)
 {
     priority_ = priority;
-    SocketUtils::SetNonBlocked(pipe_.WriteFD());
-    SocketUtils::SetNonBlocked(pipe_.ReadFD());
+    set_socket_non_blocked(pipe_.WriteFD());
+    set_socket_non_blocked(pipe_.ReadFD());
 
     epoll_fd_ = epoll_create(EPOLL_SIZE);
     if (epoll_fd_ == -1) {
@@ -117,6 +117,30 @@ inline void EventPoller::on_pipe_event()
             LOG_E << "event poller caught an exception: " << e.what();
         }
     });
+}
+
+Task::Ptr EventPoller::async(TaskIn&& task, bool may_sync, bool first)
+{
+    TimeTicker();
+    if (may_sync && IsCurrentThread()) {
+        task();
+        return nullptr;
+    }
+
+    std::shared_ptr<Task> ptask = std::make_shared<Task>(std::move(task));
+    {
+        std::lock_guard<std::mutex> lock(task_mux_);
+        if (first) {
+            task_list_.emplace_front(ptask);
+        }
+        else {
+            task_list_.emplace_back(ptask);
+        }
+    }
+
+    pipe_.Write("", 1);
+
+    return ptask;
 }
 
 }  // namespace common_library
