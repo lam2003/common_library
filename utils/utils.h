@@ -1,6 +1,7 @@
 #ifndef COMMON_LIBRARY_UTILS_H
 #define COMMON_LIBRARY_UTILS_H
 
+#include <sstream>
 #include <string>
 
 #define INSTANCE_IMPL(class_name, ...)                                         \
@@ -13,6 +14,30 @@
     }
 
 namespace common_library {
+
+class __StringPrinter : public std::string {
+  public:
+    __StringPrinter()  = default;
+    ~__StringPrinter() = default;
+
+  public:
+    template <typename T> __StringPrinter& operator<<(T&& data)
+    {
+        ss_ << std::forward<T>(data);
+        std::string::operator=(ss_.str());
+        return *this;
+    }
+
+    std::string operator<<(std::ostream& (*f)(std::ostream&)) const
+    {
+        return *this;
+    }
+
+  private:
+    std::stringstream ss_;
+};
+
+#define StringPrinter __StringPrinter()
 
 uint64_t get_current_microseconds();
 

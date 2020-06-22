@@ -4,6 +4,7 @@
 namespace common_library {
 
 class SocketUtils {
+  public:
     static int SetNonBlocked(int fd, bool nonblocked = true);
 };
 
