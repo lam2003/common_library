@@ -14,7 +14,8 @@ int main()
     signal(SIGINT, [](int) { exit(0); });
     //初始化日志系统
     Logger::Instance().AddChannel(std::make_shared<ConsoleChannel>());
-    Logger::Instance().SetWriter(std::make_shared<AsyncLogWriter>(Logger::Instance()));
+    Logger::Instance().SetWriter(
+        std::make_shared<AsyncLogWriter>(Logger::Instance()));
 
     atomic_llong count(0);
     ThreadPool   pool(1, TPRIORITY_HIGHEST, false);

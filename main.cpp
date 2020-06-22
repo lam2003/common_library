@@ -22,11 +22,27 @@
 using namespace std;
 using namespace common_library;
 
+template <typename T,
+          template <typename E, typename = std::allocator<E>> class Obj =
+              std::vector>
+class Stack {
+    Stack()
+    {
+        queue_.push_back(1);
+        queue_.push_back(2);
+        queue_.push_back(3);
+    }
+
+  private:
+    Obj<T> queue_;
+};
+
 int main()
 {
     Logger::Instance().SetWriter(
         std::make_shared<AsyncLogWriter>(Logger::Instance()));
-    Logger::Instance().AddChannel(std::make_shared<ConsoleChannel>("test",LERROR));
+    Logger::Instance().AddChannel(
+        std::make_shared<ConsoleChannel>("test", LERROR));
 
     std::string temp = get_exe_path();
 
