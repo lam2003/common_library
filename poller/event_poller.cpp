@@ -221,7 +221,7 @@ inline void EventPoller::on_pipe_event()
         swap_list.swap(task_list_);
     }
 
-    swap_list.for_each([this](Task::Ptr& f) {
+    swap_list.for_each([&](const Task::Ptr& f) {
         try {
             (*f)();
         }

@@ -119,7 +119,7 @@ class TaskExecutorGetter {
         int index = 0;
 
         for (TaskExecutor::Ptr& it : executors_) {
-            std::shared_ptr<Ticker> ticker;
+            std::shared_ptr<Ticker> ticker = std::make_shared<Ticker>();
             it->Async(
                 [ticker, completed, total_count, vec, index, f]() {
                     (*vec)[index] = ticker->ElapsedTimeMS();
