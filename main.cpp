@@ -42,7 +42,7 @@ int main()
     Logger::Instance().SetWriter(
         std::make_shared<AsyncLogWriter>(Logger::Instance()));
     Logger::Instance().AddChannel(
-        std::make_shared<ConsoleChannel>("test", LERROR));
+        std::make_shared<ConsoleChannel>("test", LTRACE));
 
     std::string temp = get_exe_path();
 

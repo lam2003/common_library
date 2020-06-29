@@ -27,8 +27,8 @@ class TaskExecutor : public ThreadLoadCounter {
   public:
     void Sync(TaskIn&& task)
     {
-        Semaphore             sem;
-        std::shared_ptr<Task> ptask = Async([&]() {
+        Semaphore sem;
+        Task::Ptr ptask = Async([&]() {
             OnceToken(nullptr, [&]() {
                 // 利用RAII原理避免发生异常时这行代码未被执行
                 sem.Post();
@@ -43,8 +43,8 @@ class TaskExecutor : public ThreadLoadCounter {
 
     void SyncFirst(TaskIn&& task, bool may_sync = true)
     {
-        Semaphore             sem;
-        std::shared_ptr<Task> ptask = AsyncFirst([&]() {
+        Semaphore sem;
+        Task::Ptr ptask = AsyncFirst([&]() {
             OnceToken(nullptr, [&]() {
                 // 利用RAII原理避免发生异常时这行代码未被执行
                 sem.Post();
@@ -147,7 +147,7 @@ class TaskExecutorGetter {
         }
     }
 
-  private:
+  protected:
     std::vector<TaskExecutor::Ptr> executors_;
     int                            pos_ = 0;
 };

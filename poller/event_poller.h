@@ -23,9 +23,12 @@ typedef enum {
 typedef std::function<void(int event)>     PollEventCB;
 typedef TaskCancelableImpl<uint64_t(void)> DelayTask;
 
+class EventPollerPool;
+
 class EventPoller final : public TaskExecutor,
                           public std::enable_shared_from_this<EventPoller> {
   public:
+    friend class EventPollerPool;
     typedef std::shared_ptr<EventPoller> Ptr;
     ~EventPoller();
 
@@ -59,8 +62,10 @@ class EventPoller final : public TaskExecutor,
      */
     void Wait();
 
+    static EventPoller::Ptr GetCurrentPoller();
+
   private:
-    EventPoller(ThreadPriority priority);
+    EventPoller(ThreadPriority priority = TPRIORITY_HIGHEST);
 
   private:
     class ExitException : public std::exception {
@@ -91,6 +96,33 @@ class EventPoller final : public TaskExecutor,
     ThreadLoadCounterImpl                                 counter_;
     std::thread* loop_thread_ = nullptr;
     int          epoll_fd_    = -1;
+};
+
+class EventPollerPool final
+    : public std::enable_shared_from_this<EventPollerPool>,
+      public TaskExecutorGetter {
+  public:
+    typedef std::shared_ptr<EventPollerPool> Ptr;
+
+    ~EventPollerPool() = default;
+
+  public:
+    static EventPollerPool& Instance();
+
+    static void SetPoolSize(int size = 0);
+
+    EventPoller::Ptr GetFirstPoller();
+
+    EventPoller::Ptr GetPoller();
+
+    void SetPreferCurrentThread(bool flag);
+
+  private:
+    EventPollerPool();
+
+  private:
+    bool       prefer_current_thread_ = true;
+    static int s_pool_size_;
 };
 }  // namespace common_library
 

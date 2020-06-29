@@ -190,6 +190,17 @@ void EventPoller::Wait()
     std::lock_guard<std::mutex> lock(running_mux_);
 }
 
+EventPoller::Ptr EventPoller::GetCurrentPoller()
+{
+    std::lock_guard<std::mutex> lock(s_all_threads_mux);
+    std::map<std::thread::id, std::weak_ptr<EventPoller>>::iterator it =
+        s_all_threads_map.find(std::this_thread::get_id());
+    if (it == s_all_threads_map.end()) {
+        return nullptr;
+    }
+    return it->second.lock();
+}
+
 inline void EventPoller::on_pipe_event()
 {
     TimeTicker();
@@ -285,7 +296,7 @@ Task::Ptr EventPoller::async(TaskIn&& task, bool may_sync, bool first)
         return nullptr;
     }
 
-    std::shared_ptr<Task> ptask = std::make_shared<Task>(std::move(task));
+    Task::Ptr ptask = std::make_shared<Task>(std::move(task));
     {
         std::lock_guard<std::mutex> lock(task_mux_);
         if (first) {
@@ -299,6 +310,45 @@ Task::Ptr EventPoller::async(TaskIn&& task, bool may_sync, bool first)
     pipe_.Write("", 1);
 
     return ptask;
+}
+
+int EventPollerPool::s_pool_size_ = 0;
+
+INSTANCE_IMPL(EventPollerPool)
+
+EventPollerPool::EventPollerPool()
+{
+    int size =
+        s_pool_size_ > 0 ? s_pool_size_ : std::thread::hardware_concurrency();
+
+    create_executor(
+        []() {
+            EventPoller::Ptr ret(new EventPoller);
+            ret->RunLoop(false, true);
+            return ret;
+        },
+        size);
+
+    LOG_I << "event poller pool size: " << size;
+}
+
+EventPoller::Ptr EventPollerPool::GetFirstPoller()
+{
+    return std::dynamic_pointer_cast<EventPoller>(executors_.front());
+}
+
+EventPoller::Ptr EventPollerPool::GetPoller()
+{
+    EventPoller::Ptr poller = EventPoller::GetCurrentPoller();
+    if (prefer_current_thread_ && poller) {
+        return poller;
+    }
+    return std::dynamic_pointer_cast<EventPoller>(GetExecutor());
+}
+
+void EventPollerPool::SetPreferCurrentThread(bool flag)
+{
+    prefer_current_thread_ = flag;
 }
 
 }  // namespace common_library
