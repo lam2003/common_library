@@ -45,13 +45,13 @@ static inline bool init_update_ts_thread()
 
 uint64_t get_current_microseconds()
 {
-    static bool s_flag = init_update_ts_thread();
+    static bool __attribute__((unused)) s_flag = init_update_ts_thread();
     return s_now_microseconds.load(std::memory_order_acquire);
 }
 
 uint64_t get_current_milliseconds()
 {
-    static bool s_flag = init_update_ts_thread();
+    static bool __attribute__((unused)) s_flag = init_update_ts_thread();
     return s_now_milliseconds.load(std::memory_order_acquire);
 }
 

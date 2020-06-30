@@ -66,7 +66,7 @@ class TaskExecutorGetter {
   public:
     TaskExecutor::Ptr GetExecutor()
     {
-        int pos = pos_;
+        size_t pos = pos_;
         if (pos >= executors_.size()) {
             pos = 0;
         }
@@ -74,7 +74,7 @@ class TaskExecutorGetter {
         TaskExecutor::Ptr min_load_executor = executors_[pos];
         int               min_load          = min_load_executor->Load();
 
-        for (int i = 0; i < executors_.size(); i++, pos++) {
+        for (size_t i = 0; i < executors_.size(); i++, pos++) {
             if (pos >= executors_.size()) {
                 pos = 0;
             }
