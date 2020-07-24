@@ -1,6 +1,5 @@
 #include <net/socket.h>
 
-namespace media_server {
-
+namespace common_library {
 
 }
