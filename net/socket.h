@@ -3,7 +3,11 @@
 
 #include <net/buffer.h>
 #include <poller/event_poller.h>
+#include <utils/mutex_wrapper.h>
 #include <utils/noncopyable.h>
+
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include <exception>
 #include <functional>
@@ -72,6 +76,62 @@ class SockException final : public std::exception {
     int         custom_code_ = 0;
 };
 
+class SockNum {
+  public:
+    typedef enum { Sock_TCP = 0, Sock_UDP } SockType;
+    typedef std::shared_ptr<SockNum> Ptr;
+    SockNum(int fd, SockType type)
+    {
+        fd_   = fd;
+        type_ = type;
+    }
+
+    ~SockNum()
+    {
+        // shutdown与close的主要区别：close是引用记数，
+        // 多进程时当引用记数为0时才进行四次挥手
+        // shutdown是强制进行四次挥手，其他进程再次读写时会触发SIGPIPE信号
+        ::shutdown(fd_, SHUT_RDWR);
+        ::close(fd_);
+    }
+
+  public:
+    int RawFd() const
+    {
+        return fd_;
+    }
+
+    SockType Type() const
+    {
+        return type_;
+    }
+
+  private:
+    SockType type_;
+    int      fd_;
+};
+
+class SockFd : public noncopyable {
+  public:
+    typedef std::shared_ptr<SockFd> Ptr;
+    SockFd(int num, SockNum::SockType type, const EventPoller::Ptr& poller)
+    {
+        num_    = std::make_shared<SockNum>(num, type);
+        poller_ = poller;
+    }
+
+    ~SockFd()
+    {
+        // 防止异步删除event_poller事件时fd被率先关闭
+        std::shared_ptr<SockNum> num = num_;
+        poller_->DelEvent(num_->RawFd(), [num](bool) {});
+    }
+
+  private:
+    SockNum::Ptr     num_;
+    EventPoller::Ptr poller_;
+};
+
 class SocketInfo {
   public:
     SocketInfo()          = default;
@@ -126,7 +186,9 @@ class Socket final : public noncopyable,
 
     bool BindUdpSock(const uint16_t port, const char* local_ip = "0.0.0.0");
 
-    
+  private:
+    EventPoller::Ptr                   poller_;
+    MutexWrapper<std::recursive_mutex> mux_sockfd_;
 };
 
 }  // namespace common_library

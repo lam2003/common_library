@@ -21,6 +21,7 @@ typedef enum {
 } PollEvent;
 
 typedef std::function<void(int event)>     PollEventCB;
+typedef std::function<void(bool success)>  PollDelCB;
 typedef TaskCancelableImpl<uint64_t(void)> DelayTask;
 
 class EventPollerPool;
@@ -41,6 +42,8 @@ class EventPoller final : public TaskExecutor,
 
   public:
     int AddEvent(int fd, int event, PollEventCB&& cb);
+
+    int DelEvent(int fd, PollDelCB&& cb);
 
     bool IsCurrentThread();
 

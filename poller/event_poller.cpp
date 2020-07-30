@@ -100,6 +100,28 @@ int EventPoller::AddEvent(int fd, int event, PollEventCB&& cb)
     return 0;
 }
 
+int EventPoller::DelEvent(int fd, PollDelCB&& cb)
+{
+    TimeTicker();
+
+    if (!cb) {
+        cb = [](bool success) {};
+    }
+
+    if (IsCurrentThread()) {
+        bool success = epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) == 0 &&
+                       event_map_.erase(fd);
+        cb(success);
+        return success ? 0 : -1;
+    }
+
+    Async([this, fd, cb] {
+        DelEvent(fd, std::move(const_cast<PollDelCB&>(cb)));
+    });
+
+    return 0;
+}
+
 int EventPoller::Load()
 {
     return counter_.Load();
