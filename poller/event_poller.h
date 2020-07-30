@@ -47,6 +47,9 @@ class EventPoller final : public TaskExecutor,
 
     bool IsCurrentThread();
 
+    DelayTask::Ptr DoDelayTask(uint64_t                    delay_ms,
+                               std::function<uint64_t()>&& task);
+
     /**
      * 执行事件循环
      * @param blocked 是否在当前线程执行事件循环

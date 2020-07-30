@@ -120,11 +120,31 @@ class SockFd : public noncopyable {
         poller_ = poller;
     }
 
+    SockFd(const SockFd& that, const EventPoller::Ptr& poller)
+    {
+        num_    = that.num_;
+        poller_ = poller;
+        if (poller_ == that.poller_) {
+            throw std::invalid_argument("copy a sockfd with same poller!");
+        }
+    }
+
     ~SockFd()
     {
         // 防止异步删除event_poller事件时fd被率先关闭
         std::shared_ptr<SockNum> num = num_;
         poller_->DelEvent(num_->RawFd(), [num](bool) {});
+    }
+
+  public:
+    int RawFd() const
+    {
+        return num_->RawFd();
+    }
+
+    SockNum::SockType Type() const
+    {
+        return num_->Type();
     }
 
   private:

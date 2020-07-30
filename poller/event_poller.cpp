@@ -132,6 +132,16 @@ bool EventPoller::IsCurrentThread()
     return std::this_thread::get_id() == loop_tid_;
 }
 
+DelayTask::Ptr EventPoller::DoDelayTask(uint64_t                    delay_ms,
+                                        std::function<uint64_t()>&& task)
+{
+    DelayTask::Ptr ret      = std::make_shared<DelayTask>(std::move(task));
+    uint64_t       timeline = delay_ms + get_current_milliseconds();
+    AsyncFirst(
+        [this, timeline, ret]() { delay_tasks_.emplace(timeline, ret); });
+    return ret;
+}
+
 void EventPoller::RunLoop(bool blocked, bool register_current_poller)
 {
     if (blocked) {
@@ -177,7 +187,7 @@ void EventPoller::RunLoop(bool blocked, bool register_current_poller)
                 }
                 catch (std::exception& e) {
                     LOG_E << "event poller caught an exception while executing "
-                             "event handler: "
+                             "event handler. "
                           << e.what();
                 }
             }
@@ -251,8 +261,7 @@ inline void EventPoller::on_pipe_event()
             exit_flag_ = true;
         }
         catch (std::exception& e) {
-            LOG_E << "event poller caught an exception while executing normal "
-                     "task: "
+            LOG_E << "event poller caught an exception while executing task. "
                   << e.what();
         }
     });
@@ -299,7 +308,7 @@ uint64_t EventPoller::flush_delay_tasks(uint64_t now)
     }
 
     // @warning 这句不需要？因为只有poll线程会操作这个delay_tasks_
-    delay_tasks_copy.insert(delay_tasks_.begin(), delay_tasks_.end());
+    // delay_tasks_copy.insert(delay_tasks_.begin(), delay_tasks_.end());
     delay_tasks_copy.swap(delay_tasks_);
 
     std::multimap<uint64_t, DelayTask::Ptr>::iterator it = delay_tasks_.begin();

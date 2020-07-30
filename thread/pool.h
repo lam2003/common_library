@@ -121,7 +121,7 @@ class ThreadPool final : public TaskExecutor {
                 ptask = nullptr;
             }
             catch (std::exception& e) {
-                LOG_E << "thread pool caught an exception: " << e.what();
+                LOG_E << "thread pool caught an exception. " << e.what();
             }
         }
     }
