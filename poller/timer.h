@@ -7,6 +7,7 @@ namespace common_library {
 
 class Timer {
   public:
+    typedef std::shared_ptr<Timer> Ptr;
     Timer(float                        second,
           const std::function<bool()>& cb,
           const EventPoller::Ptr&      poller,

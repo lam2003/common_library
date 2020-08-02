@@ -43,7 +43,7 @@ class EventPoller final : public TaskExecutor,
   public:
     int AddEvent(int fd, int event, PollEventCB&& cb);
 
-    int DelEvent(int fd, PollDelCB&& cb);
+    int DelEvent(int fd, PollDelCB&& cb = nullptr);
 
     bool IsCurrentThread();
 

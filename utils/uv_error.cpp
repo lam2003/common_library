@@ -35,4 +35,8 @@ const char* get_uv_errmsg()
     return strerror(get_uv_error());
 }
 
+const char* uv_strerror(int err)
+{
+    return strerror(err);
+}
 }  // namespace common_library

@@ -3,6 +3,8 @@
 
 #include <mutex>
 
+#define LOCK_GUARD(mux) std::lock_guard<decltype(mux)> lock(mux)
+
 namespace common_library {
 
 template <typename Mux = std::recursive_mutex> class MutexWrapper {
@@ -14,14 +16,15 @@ template <typename Mux = std::recursive_mutex> class MutexWrapper {
 
     ~MutexWrapper() {}
 
-    inline void Lock()
+  public:
+    inline void lock()
     {
         if (enable_) {
             mux_.lock();
         }
     }
 
-    inline void Unlock()
+    inline void unlock()
     {
         if (enable_) {
             mux_.unlock();

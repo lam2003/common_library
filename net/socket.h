@@ -3,6 +3,8 @@
 
 #include <net/buffer.h>
 #include <poller/event_poller.h>
+#include <poller/timer.h>
+#include <utils/list.h>
 #include <utils/mutex_wrapper.h>
 #include <utils/noncopyable.h>
 
@@ -193,6 +195,8 @@ class Socket final : public noncopyable,
     ~Socket();
 
   public:
+    void Close();
+
     void Connect(const std::string& url,
                  uint16_t           port,
                  const OnErrCB&     connect_cb,
@@ -207,8 +211,43 @@ class Socket final : public noncopyable,
     bool BindUdpSock(const uint16_t port, const char* local_ip = "0.0.0.0");
 
   private:
+    SockFd::Ptr make_sockfd(int sock, SockNum::SockType type);
+
+    void on_connected(const SockFd::Ptr& sockfd, const OnErrCB& connect_cb);
+
+    int on_read(const SockFd::Ptr& sockfd, bool is_udp);
+
+    int on_writeable(const SockFd::Ptr& sockfd);
+
+    void on_error(const SockFd::Ptr& sockfd);
+
+    SockException get_sock_err(const SockFd::Ptr& sockfd,
+                               bool               try_errno = true);
+
+    bool attach_event(const SockFd::Ptr& sockfd, bool is_udp);
+
+    bool emit_err(const SockException& err);
+
+  private:
     EventPoller::Ptr                   poller_;
+    Timer::Ptr                         con_timer_;
+    SockFd::Ptr                        sockfd_;
     MutexWrapper<std::recursive_mutex> mux_sockfd_;
+    //////////////////////
+    std::shared_ptr<std::function<void(int)>> async_connect_cb_;
+    //////////////////////
+    MutexWrapper<std::recursive_mutex> mux_buffer_waiting_;
+    List<Buffer::Ptr>                  buffer_waiting_;
+    MutexWrapper<std::recursive_mutex> mux_buffer_sending_;
+    List<Buffer::Ptr>                  buffer_sending_;
+    //////////////////////
+    std::atomic<bool> enable_recv_;
+    //////////////////////
+    MutexWrapper<std::recursive_mutex> mux_event_;
+    OnErrCB                            err_cb_;
+    OnReadCB                           read_cb_;
+    //////////////////////
+    BufferRaw::Ptr read_buffer_;
 };
 
 }  // namespace common_library
