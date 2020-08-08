@@ -1,13 +1,17 @@
 #ifndef COMMON_LIBRARY_BUFFER_H
 #define COMMON_LIBRARY_BUFFER_H
 
+#include <utils/list.h>
 #include <utils/noncopyable.h>
 
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
-#include <stdexcept>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace common_library {
 
@@ -110,6 +114,46 @@ class BufferRaw final : public Buffer {
     uint32_t size_     = 0;
 };
 
+class BufferList;
+class BufferSock : public Buffer {
+  public:
+    friend class BufferList;
+    BufferSock(const Buffer::Ptr& buffer,
+               struct sockaddr*   addr     = nullptr,
+               socklen_t          addr_len = 0);
+    ~BufferSock();
+
+  public:
+    char*    Data() const override;
+    uint32_t Size() const override;
+
+  private:
+    Buffer::Ptr      buffer_;
+    struct sockaddr* addr_     = nullptr;
+    socklen_t        addr_len_ = 0;
+};
+
+class BufferList : public noncopyable {
+  public:
+    typedef std::shared_ptr<BufferList> Ptr;
+    BufferList(List<Buffer::Ptr>& list);
+    ~BufferList() {}
+
+  public:
+    bool empty();
+    int  count();
+    int  send(int fd, int flags, bool udp);
+
+  private:
+    void re_offset(int n);
+    int  send_l(int fd, int flags, bool udp);
+
+  private:
+    std::vector<struct iovec> iovec_;
+    int                       iovec_off_   = 0;
+    int                       remain_size_ = 0;
+    List<Buffer::Ptr>         pkt_list_;
+};
 }  // namespace common_library
 
 #endif

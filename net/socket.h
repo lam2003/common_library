@@ -228,6 +228,8 @@ class Socket final : public noncopyable,
 
     bool emit_err(const SockException& err);
 
+    bool flush_data(const SockFd::Ptr sockfd, bool is_poller_thread);
+
   private:
     EventPoller::Ptr                   poller_;
     Timer::Ptr                         con_timer_;
@@ -237,9 +239,9 @@ class Socket final : public noncopyable,
     std::shared_ptr<std::function<void(int)>> async_connect_cb_;
     //////////////////////
     MutexWrapper<std::recursive_mutex> mux_buffer_waiting_;
-    List<Buffer::Ptr>                  buffer_waiting_;
+    List<BufferList::Ptr>              buffer_waiting_;
     MutexWrapper<std::recursive_mutex> mux_buffer_sending_;
-    List<Buffer::Ptr>                  buffer_sending_;
+    List<BufferList::Ptr>              buffer_sending_;
     //////////////////////
     std::atomic<bool> enable_recv_;
     //////////////////////
@@ -248,6 +250,8 @@ class Socket final : public noncopyable,
     OnReadCB                           read_cb_;
     //////////////////////
     BufferRaw::Ptr read_buffer_;
+    //////////////////////
+    Ticker last_flush_ticker_;
 };
 
 }  // namespace common_library

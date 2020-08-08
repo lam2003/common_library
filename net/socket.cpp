@@ -208,9 +208,9 @@ bool Socket::emit_err(const SockException& err)
         if (!sockfd_) {
             return false;
         }
-
-        Close();
     }
+    // @warning 这里不用加锁？
+    Close();
 
     std::weak_ptr<Socket> weak_self = shared_from_this();
 
@@ -225,6 +225,31 @@ bool Socket::emit_err(const SockException& err)
     });
 
     return true;
+}
+
+bool Socket::flush_data(const SockFd::Ptr sockfd, bool is_poller_thread)
+{
+    List<BufferList::Ptr> buffer_sending_tmp;
+    {
+        LOCK_GUARD(mux_buffer_sending_);
+        if (!buffer_sending_.empty()) {
+            buffer_sending_tmp.swap(buffer_sending_);
+        }
+    }
+
+    if (buffer_sending_tmp.empty()) {
+        last_flush_ticker_.Reset();
+        do {
+            {
+                LOCK_GUARD(mux_buffer_waiting_);
+                if (!buffer_waiting_.empty()) {
+                    buffer_sending_tmp.emplace_back(
+                        std::make_shared<BufferList>(buffer_waiting_));
+                    break;
+                }
+            }
+        } while (0);
+    }
 }
 
 }  // namespace common_library
