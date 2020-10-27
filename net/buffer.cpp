@@ -69,7 +69,7 @@ int BufferList::send(int fd, int flags, bool udp)
     return -1;
 }
 
-void BufferList::re_offset(int n)
+void BufferList::reoffset(int n)
 {
     remain_size_ -= n;
     int offset   = 0;
@@ -135,7 +135,7 @@ int BufferList::send_l(int fd, int flags, bool udp)
     }
 
     if (n > 0) {
-        re_offset(n);
+        reoffset(n);
         return n;
     }
 

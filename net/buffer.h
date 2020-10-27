@@ -145,7 +145,7 @@ class BufferList : public noncopyable {
     int  send(int fd, int flags, bool udp);
 
   private:
-    void re_offset(int n);
+    void reoffset(int n);
     int  send_l(int fd, int flags, bool udp);
 
   private:
