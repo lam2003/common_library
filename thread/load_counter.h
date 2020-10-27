@@ -19,6 +19,8 @@ class ThreadLoadCounter {
 
 class ThreadLoadCounterImpl final : public ThreadLoadCounter {
   public:
+    typedef std::shared_ptr<ThreadLoadCounterImpl> Ptr;
+
     ThreadLoadCounterImpl(uint64_t max_size, uint32_t max_duration_us)
     {
         last_sleep_time_us_ = last_wake_time_us_ = get_current_microseconds();

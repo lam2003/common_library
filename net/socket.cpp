@@ -1,5 +1,6 @@
 #include <net/socket.h>
 #include <utils/uv_error.h>
+#include <thread/worker.h>
 
 namespace common_library {
 
@@ -69,6 +70,8 @@ void Socket::Connect(const std::string& url,
                         // strong_self->on_connected(
                     });
             });
+        
+    
 }
 
 SockFd::Ptr Socket::make_sockfd(int sock, SockNum::SockType type)
@@ -243,8 +246,8 @@ bool Socket::flush_data(const SockFd::Ptr sockfd, bool is_poller_thread)
             {
                 LOCK_GUARD(mux_buffer_waiting_);
                 if (!buffer_waiting_.empty()) {
-                    buffer_sending_tmp.emplace_back(
-                        std::make_shared<BufferList>(buffer_waiting_));
+                    // buffer_sending_tmp.emplace_back(
+                        // std::make_shared<BufferList>(buffer_waiting_));
                     break;
                 }
             }

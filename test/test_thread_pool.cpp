@@ -1,5 +1,5 @@
-#include "thread/pool.h"
-#include "utils//logger.h"
+#include "thread/worker.h"
+#include "utils/logger.h"
 #include "utils/time_ticker.h"
 #include <atomic>
 #include <iostream>
@@ -18,11 +18,11 @@ int main()
         std::make_shared<AsyncLogWriter>(Logger::Instance()));
 
     atomic_llong count(0);
-    ThreadPool   pool(1, TPRIORITY_HIGHEST, false);
+    Worker   worker(TPRIORITY_HIGHEST, false);
 
     Ticker ticker;
     for (int i = 0; i < 1000 * 10000; ++i) {
-        pool.Async([&]() {
+        worker.Async([&]() {
             if (++count >= 1000 * 10000) {
                 LOG_I << "执行1000万任务总共耗时:" << ticker.ElapsedTimeMS()
                       << "ms";
@@ -33,7 +33,7 @@ int main()
     uint64_t lastCount = 0, nowCount = 1;
     ticker.Reset();
     //此处才开始启动线程
-    pool.Start();
+    worker.Start();
     while (true) {
         sleep(1);
         nowCount = count.load();
