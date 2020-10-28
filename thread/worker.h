@@ -61,7 +61,8 @@ class Worker final : public TaskExecutor {
     void Start()
     {
         // 先初始化counters
-        load_counter_ = std::make_shared<ThreadLoadCounterImpl>(32, 2 * 1000 * 1000);
+        load_counter_ =
+            std::make_shared<ThreadLoadCounterImpl>(32, 2 * 1000 * 1000);
         thread_group_.CreateThread(std::bind(&Worker::run, this));
     }
 
@@ -79,8 +80,7 @@ class Worker final : public TaskExecutor {
     void run()
     {
         set_thread_priority(priority_);
-
-        Task::Ptr                               ptask = nullptr;
+        Task::Ptr ptask = nullptr;
         while (true) {
             load_counter_->Sleep();
             if (!queue_.GetTask(ptask)) {
@@ -102,6 +102,27 @@ class Worker final : public TaskExecutor {
     ThreadGroup                thread_group_;
     ThreadLoadCounterImpl::Ptr load_counter_;
     TaskQueue<Task::Ptr>       queue_;
+};
+
+class WorkerPool final : public std::enable_shared_from_this<WorkerPool>,
+                         public TaskExecutorGetter {
+  public:
+    typedef std::shared_ptr<WorkerPool> Ptr;
+
+    ~WorkerPool() = default;
+
+  public:
+    static WorkerPool& Instance();
+
+    static void SetPoolSize(int size = 0);
+
+    Worker::Ptr GetWorker();
+
+  private:
+    WorkerPool();
+
+  private:
+    static int s_pool_size_;
 };
 
 }  // namespace common_library

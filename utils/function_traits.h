@@ -15,7 +15,7 @@ template <typename Ret, typename... Args> struct function_traits<Ret(Args...)>
 
     typedef Ret FunctionType(Args...);
     typedef Ret ReturnType;
-    using STLFunctionTyoe = std::function<Ret(Args...)>;
+    using STLFunctionType = std::function<Ret(Args...)>;
     typedef Ret (*Pointer)(Args...);
 
     template <size_t I> struct args
