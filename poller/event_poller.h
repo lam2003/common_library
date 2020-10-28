@@ -45,6 +45,8 @@ class EventPoller final : public TaskExecutor,
 
     int DelEvent(int fd, PollDelCB&& cb = nullptr);
 
+    int ModifyEvent(int fd, int event);
+
     bool IsCurrentThread();
 
     DelayTask::Ptr DoDelayTask(uint64_t                    delay_ms,

@@ -122,6 +122,20 @@ int EventPoller::DelEvent(int fd, PollDelCB&& cb)
     return 0;
 }
 
+int EventPoller::ModifyEvent(int fd, int event)
+{
+    TimeTicker();
+
+    if (IsCurrentThread()) {
+        struct epoll_event ev;
+        ev.events  = event;
+        ev.data.fd = fd;
+        return epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, fd, &ev);
+    }
+
+    Async([this, fd, event]() { ModifyEvent(fd, event); });
+}
+
 int EventPoller::Load()
 {
     return counter_.Load();
