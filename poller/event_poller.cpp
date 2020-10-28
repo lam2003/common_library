@@ -126,14 +126,11 @@ int EventPoller::ModifyEvent(int fd, int event)
 {
     TimeTicker();
 
-    if (IsCurrentThread()) {
-        struct epoll_event ev;
-        ev.events  = event;
-        ev.data.fd = fd;
-        return epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, fd, &ev);
-    }
-
-    Async([this, fd, event]() { ModifyEvent(fd, event); });
+    struct epoll_event ev;
+    ev.events  = event;
+    ev.data.fd = fd;
+    // epoll线程安全
+    return epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, fd, &ev);
 }
 
 int EventPoller::Load()
