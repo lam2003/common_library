@@ -99,12 +99,20 @@ class Socket : public std::enable_shared_from_this<Socket> {
 
     int Connect(const std::string& host,
                 uint16_t           port,
-                ErrorCB            cb,
+                const ErrorCB&     cb,
                 float              timeout_sec = 5,
                 const std::string& local_ip    = "0.0.0.0",
                 uint16_t           local_port  = 0);
 
     void Close();
+
+  private:
+    void on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb);
+
+    int attach_event(const SocketFd::Ptr& sockfd, bool is_udp = false);
+
+    static SocketException get_socket_error(const SocketFd::Ptr& sockfd,
+                                            bool try_errno = true);
 
   private:
     EventPoller::Ptr poller_;

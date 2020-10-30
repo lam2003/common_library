@@ -2,11 +2,14 @@
 #include <utils/logger.h>
 #include <utils/uv_error.h>
 
+#include <arpa/inet.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 namespace common_library {
 
-int set_socket_non_blocked(int fd, bool non_blocked)
+int SocketUtils::SetNonBlocked(int fd, bool non_blocked)
 {
     int opt = non_blocked;
 
@@ -17,6 +20,16 @@ int set_socket_non_blocked(int fd, bool non_blocked)
     }
 
     return ret;
+}
+
+int SocketUtils::Connect(const char* host,
+                         uint16_t    port,
+                         const char* local_ip,
+                         uint16_t    local_port,
+                         bool        async)
+{
+    // sockaddr_in
+    return 0;
 }
 
 }  // namespace common_library
