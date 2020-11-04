@@ -84,11 +84,13 @@ void Logger::write_channels(const std::shared_ptr<LogContext> pctx)
 
 LogContext::LogContext(LogLevel    level,
                        const char* file,
+                       pid_t       tid,
                        const char* function,
                        int         line)
 {
     this->level    = level;
     this->file     = file;
+    this->tid      = tid;
     this->function = function;
     this->line     = line;
     gettimeofday(&tv, nullptr);
@@ -179,8 +181,9 @@ void LogChannel::format(const Logger&                      logger,
         << " ";
 
     if (enable_detail) {
-        ost << logger.GetLoggerName() << "[" << getpid() << "]" << pctx->file
-            << ":" << pctx->line << " " << pctx->function << " | ";
+        ost << logger.GetLoggerName() << "[" << getpid() << "]"
+            << "[" << pctx->tid << "]" << pctx->file << ":" << pctx->line << " "
+            << pctx->function << " | ";
     }
 
     ost << pctx->str();
@@ -214,7 +217,7 @@ LogContextCapturer::LogContextCapturer(Logger&     logger,
                                        int         line)
     : logger_(logger)
 {
-    pctx_ = std::make_shared<LogContext>(level, file, function, line);
+    pctx_ = std::make_shared<LogContext>(level, file, gettid(), function, line);
 }
 
 LogContextCapturer::LogContextCapturer(const LogContextCapturer& that)

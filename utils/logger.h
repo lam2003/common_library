@@ -57,6 +57,7 @@ class LogContext final : public std::ostringstream {
   public:
     LogContext(LogLevel    level,
                const char* file,
+               pid_t       tid,
                const char* function,
                int         line);
 
@@ -66,6 +67,7 @@ class LogContext final : public std::ostringstream {
     LogLevel    level;
     int         line;
     std::string file;
+    pid_t       tid;
     std::string function;
     timeval     tv;
 };

@@ -21,7 +21,9 @@ static inline uint64_t get_current_microseconds_origin()
 static std::atomic<uint64_t>
     s_now_microseconds(get_current_microseconds_origin());
 static std::atomic<uint64_t>
-    s_now_milliseconds(get_current_microseconds_origin() / 1000);
+                             s_now_milliseconds(get_current_microseconds_origin() / 1000);
+static std::atomic<uint64_t> s_now_seconds(get_current_microseconds_origin() /
+                                           1000000);
 
 static inline bool init_update_ts_thread()
 {
@@ -34,6 +36,8 @@ static inline bool init_update_ts_thread()
                                      std::memory_order_release);
             s_now_milliseconds.store(now_microseconds / 1000,
                                      std::memory_order_release);
+            s_now_seconds.store(now_microseconds / 1000000,
+                                std::memory_order_release);
             std::this_thread::sleep_for(std::chrono::microseconds(500));
         }
     });
@@ -53,6 +57,12 @@ uint64_t get_current_milliseconds()
 {
     static bool __attribute__((unused)) s_flag = init_update_ts_thread();
     return s_now_milliseconds.load(std::memory_order_acquire);
+}
+
+uint64_t get_current_seconds()
+{
+    static bool __attribute__((unused)) s_flag = init_update_ts_thread();
+    return s_now_seconds.load(std::memory_order_acquire);
 }
 
 std::string print_time(const timeval& tv)

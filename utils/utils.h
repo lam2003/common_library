@@ -1,6 +1,7 @@
 #ifndef COMMON_LIBRARY_UTILS_H
 #define COMMON_LIBRARY_UTILS_H
 
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -42,6 +43,8 @@ class __StringPrinter : public std::string {
 uint64_t get_current_microseconds();
 
 uint64_t get_current_milliseconds();
+
+uint64_t get_current_seconds();
 
 std::string print_time(const timeval& tv);
 

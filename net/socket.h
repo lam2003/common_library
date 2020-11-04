@@ -59,7 +59,7 @@ class SocketException final : public std::exception {
     std::string msg_;
 };
 
-class SocketFd {
+class SocketFd final {
   public:
     typedef std::shared_ptr<SocketFd> Ptr;
     SocketFd(int fd, SockType type, const EventPoller::Ptr& poller)
@@ -90,7 +90,7 @@ class SocketFd {
     EventPoller::Ptr poller_;
 };
 
-class Socket : public std::enable_shared_from_this<Socket> {
+class Socket final : public std::enable_shared_from_this<Socket> {
   public:
     typedef std::shared_ptr<Socket>                     ptr;
     typedef std::function<void(const SocketException&)> ErrorCB;

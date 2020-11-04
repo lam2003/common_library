@@ -8,6 +8,7 @@ endif()
 add_library(lmcomm
     ${CMAKE_CURRENT_SOURCE_DIR}/net/socket_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/net/socket.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/dns_cache.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/poller/event_poller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/poller/pipe_wrapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/logger.cpp 
@@ -42,4 +43,15 @@ if(BUILD_LMCOMM_TEST)
     target_include_directories(test_event_poller PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(test_event_poller PUBLIC cxx_std_11)
     target_link_libraries(test_event_poller lmcomm pthread)
+
+    
+    add_executable(test_dns_cache
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_dns_cache.cpp
+    )
+    add_dependencies(test_dns_cache 
+        lmcomm
+    )
+    target_include_directories(test_dns_cache PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(test_dns_cache PUBLIC cxx_std_11)
+    target_link_libraries(test_dns_cache lmcomm pthread)
 endif()
