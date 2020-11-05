@@ -9,6 +9,9 @@
 #include <poller/timer.h>
 #include <utils/mutex_wrapper.h>
 
+#include <sys/socket.h>
+#include <unistd.h>
+
 namespace common_library {
 
 typedef enum {
@@ -72,6 +75,9 @@ class SocketFd final {
     ~SocketFd()
     {
         poller_->DelEvent(fd_);
+
+        ::shutdown(fd_, SHUT_RDWR);
+        ::close(fd_);
     }
 
     int RawFd() const
@@ -92,7 +98,7 @@ class SocketFd final {
 
 class Socket final : public std::enable_shared_from_this<Socket> {
   public:
-    typedef std::shared_ptr<Socket>                     ptr;
+    typedef std::shared_ptr<Socket>                     Ptr;
     typedef std::function<void(const SocketException&)> ErrorCB;
 
     Socket(const EventPoller::Ptr& poller, bool enable_mutex);

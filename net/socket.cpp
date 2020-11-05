@@ -30,6 +30,7 @@ int Socket::Connect(const std::string& host,
                     const std::string& local_ip,
                     uint16_t           local_port)
 {
+    Close();
     std::weak_ptr<Socket> weak_self = shared_from_this();
 
     // connect_cb
@@ -37,9 +38,6 @@ int Socket::Connect(const std::string& host,
     auto connect_cb = [cb, weak_self](const SocketException& err) {
         auto strong_self = weak_self.lock();
         if (!strong_self) {
-            // 为何不需要用户回调？
-            // 外部主动将socket析构，本不希望收到回调，这里还是打一条日志吧
-            LOG_W << "socket instance has been destroyed. just reture";
             return;
         }
 
@@ -76,6 +74,10 @@ int Socket::Connect(const std::string& host,
             auto sockfd =
                 std::make_shared<SocketFd>(fd, SOCK_TCP, strong_self->poller_);
             std::weak_ptr<SocketFd> weak_sockfd = sockfd;
+            {
+                LOCK_GUARD(strong_self->sockfd_mux_);
+                strong_self->sockfd_ = sockfd;
+            }
 
             int ret = strong_self->poller_->AddEvent(
                 fd, PE_WRITE, [connect_cb, weak_sockfd, weak_self](int event) {
@@ -94,9 +96,6 @@ int Socket::Connect(const std::string& host,
                     "add event to poller failed when beginning to connect"));
                 return;
             }
-
-            LOCK_GUARD(strong_self->sockfd_mux_);
-            strong_self->sockfd_ = sockfd;
         });
 
     async_connect_cb_ = async_connect_cb;
@@ -111,19 +110,34 @@ int Socket::Connect(const std::string& host,
     std::weak_ptr<std::function<void(int)>> weak_async_connect_cb =
         async_connect_cb;
 
+    auto poller = poller_;
     WorkerPool::Instance().GetWorker()->Async(
-        [host, port, local_ip, local_port, weak_async_connect_cb] {
+        [host, port, local_ip, local_port, weak_async_connect_cb, poller] {
             int fd = SocketUtils::Connect(host.c_str(), port, local_ip.c_str(),
                                           local_port, true);
-            
-            
+            poller->Async([weak_async_connect_cb, fd]() {
+                auto strong_async_connect_cb = weak_async_connect_cb.lock();
+                if (strong_async_connect_cb) {
+                    (*strong_async_connect_cb)(fd);
+                }
+                else {
+                    LOG_W << "socket instance has been destroyed. just close "
+                             "fd and return";
+                    CLOSE_SOCKET(fd);
+                }
+            });
         });
+
     return 0;
 }
 
 void Socket::Close()
 {
-    connect_timer_ = nullptr;
+    connect_timer_    = nullptr;
+    async_connect_cb_ = nullptr;
+
+    LOCK_GUARD(sockfd_mux_);
+    sockfd_ = nullptr;
 }
 
 void Socket::on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb)

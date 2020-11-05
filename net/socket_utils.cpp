@@ -73,7 +73,6 @@ int SocketUtils::Connect(const char* host,
     SetSendBuf(fd);
     SetCloseWait(fd);
     SetCloExec(fd);
-    SetSendTimeout(fd);
 
     int ret = Bind(fd, local_ip, local_port, is_ipv6);
     if (ret == -1) {

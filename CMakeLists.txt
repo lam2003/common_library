@@ -11,6 +11,7 @@ add_library(lmcomm
     ${CMAKE_CURRENT_SOURCE_DIR}/net/dns_cache.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/poller/event_poller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/poller/pipe_wrapper.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/poller/timer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/logger.cpp 
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/utils.cpp 
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/uv_error.cpp

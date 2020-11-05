@@ -1,4 +1,6 @@
+#include "net/socket.h"
 #include "net/socket_utils.h"
+#include "poller/event_poller.h"
 #include "utils/logger.h"
 #include "utils/time_ticker.h"
 #include <arpa/inet.h>
@@ -16,6 +18,8 @@ using namespace common_library;
  * @return
  */
 
+Semaphore sem;
+
 int main()
 {
     //设置日志
@@ -25,7 +29,21 @@ int main()
 
     TimeTicker();
 
-    SocketUtils::Connect("webrtc.linmin.xyz", 2222);
+    EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
+    Socket::Ptr      socket = std::make_shared<Socket>(poller, false);
+    socket->Connect("linmin.xyz", 80, [](const SocketException& err) {
+        LOG_W << err.what();
+        sem.Post();
+    });
 
+    sem.Wait();
+
+    socket->Connect("baidu.com", 80, [](const SocketException& err) {
+        LOG_W << err.what();
+        sem.Post();
+    });
+
+    sem.Wait();
+    
     return 0;
 }
