@@ -29,8 +29,9 @@ EventPoller::EventPoller(ThreadPriority priority)
     : counter_(32, 2 * 1000 * 1000)
 {
     priority_ = priority;
-    SocketUtils::SetNonBlocked(pipe_.WriteFD());
-    SocketUtils::SetNonBlocked(pipe_.ReadFD());
+    // 将写设置为非阻塞，防止poller线程退出后，因写满缓存被永久阻塞
+    SocketUtils::SetNoBlocked(pipe_.WriteFD());
+    SocketUtils::SetNoBlocked(pipe_.ReadFD());
 
     epoll_fd_ = epoll_create(EPOLL_SIZE);
     if (epoll_fd_ == -1) {

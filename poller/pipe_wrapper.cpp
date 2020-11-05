@@ -22,8 +22,8 @@ PipeWrapper::PipeWrapper()
                                                << get_uv_errmsg());
     }
 
-    SocketUtils::SetNonBlocked(pipe_fd_[0], true);
-    SocketUtils::SetNonBlocked(pipe_fd_[1], false);
+    SocketUtils::SetNoBlocked(pipe_fd_[0], true);
+    SocketUtils::SetNoBlocked(pipe_fd_[1], false);
 }
 
 PipeWrapper::~PipeWrapper()

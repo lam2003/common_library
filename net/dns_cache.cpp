@@ -53,12 +53,12 @@ bool DNSCache::get_system_domain_ip(const char* host, DNSItem& item)
 {
     addrinfo* answer = nullptr;
 
-    int res = -1;
+    int ret = -1;
     do {
-        res = getaddrinfo(host, nullptr, nullptr, &answer);
-    } while (res != 0 && get_uv_error() == EINTR);
+        ret = getaddrinfo(host, nullptr, nullptr, &answer);
+    } while (ret != 0 && get_uv_error() == EINTR);
 
-    if (res != 0 || !answer) {
+    if (ret != 0 || !answer) {
         LOG_W << "dns failed. host=" << host;
         return false;
     }

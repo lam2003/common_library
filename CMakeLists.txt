@@ -54,4 +54,14 @@ if(BUILD_LMCOMM_TEST)
     target_include_directories(test_dns_cache PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(test_dns_cache PUBLIC cxx_std_11)
     target_link_libraries(test_dns_cache lmcomm pthread)
+
+    add_executable(test_socket_utils
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_socket_utils.cpp
+    )
+    add_dependencies(test_socket_utils 
+        lmcomm
+    )
+    target_include_directories(test_socket_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(test_socket_utils PUBLIC cxx_std_11)
+    target_link_libraries(test_socket_utils lmcomm pthread)
 endif()

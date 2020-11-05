@@ -77,7 +77,7 @@ int Socket::Connect(const std::string& host,
                 std::make_shared<SocketFd>(fd, SOCK_TCP, strong_self->poller_);
             std::weak_ptr<SocketFd> weak_sockfd = sockfd;
 
-            int res = strong_self->poller_->AddEvent(
+            int ret = strong_self->poller_->AddEvent(
                 fd, PE_WRITE, [connect_cb, weak_sockfd, weak_self](int event) {
                     auto strong_self   = weak_self.lock();
                     auto strong_sockfd = weak_sockfd.lock();
@@ -88,7 +88,7 @@ int Socket::Connect(const std::string& host,
                     }
                 });
 
-            if (res != 0) {
+            if (ret != 0) {
                 connect_cb(SocketException(
                     ERR_OTHER,
                     "add event to poller failed when beginning to connect"));
