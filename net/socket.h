@@ -19,7 +19,7 @@ typedef enum {
     ERR_EOF,
     ERR_TIMEOUT,
     ERR_REFUESD,
-    ERR_DNS,
+    ERR_UNREACHABLE,
     ERR_SHUTDOWN,
     ERR_OTHER = 0xFF
 } SockErrCode;

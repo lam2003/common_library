@@ -74,7 +74,14 @@ int SocketUtils::Connect(const char* host,
     SetCloseWait(fd);
     SetCloExec(fd);
 
-    int ret = Bind(fd, local_ip, local_port, is_ipv6);
+    int ret = -1;
+    if (is_ipv6 && strcmp("0.0.0.0", local_ip) == 0) {
+        ret = Bind(fd, "::", local_port, is_ipv6);
+    }
+    else {
+        ret = Bind(fd, local_ip, local_port, is_ipv6);
+    }
+
     if (ret == -1) {
         ::close(fd);
         return ret;

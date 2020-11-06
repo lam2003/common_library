@@ -56,18 +56,19 @@ int Socket::Connect(const std::string& host,
 
     auto async_connect_cb = std::make_shared<std::function<void(int)>>(
         [connect_cb, weak_self](int fd) {
-            if (fd == -1) {
-                connect_cb(SocketException(ERR_DNS, get_uv_errmsg()));
-                return;
-            }
-
             auto strong_self = weak_self.lock();
             if (!strong_self) {
                 CLOSE_SOCKET(fd);
                 // 为何不需要用户回调？
                 // 外部主动将socket析构，本不希望收到回调，这里还是打一条日志吧
-                LOG_W << "socket instance has been destroyed. just close fd "
-                         "and reture";
+                LOG_D << "socket instance has been destroyed. just close fd "
+                         "and reture ####2";
+                return;
+            }
+
+            if (fd == -1) {
+                connect_cb(
+                    SocketException(ERR_UNREACHABLE, uv_strerror(ENETUNREACH)));
                 return;
             }
 
@@ -121,8 +122,8 @@ int Socket::Connect(const std::string& host,
                     (*strong_async_connect_cb)(fd);
                 }
                 else {
-                    LOG_W << "socket instance has been destroyed. just close "
-                             "fd and return";
+                    LOG_D << "socket instance has been destroyed. just close "
+                             "fd and return ####1";
                     CLOSE_SOCKET(fd);
                 }
             });
