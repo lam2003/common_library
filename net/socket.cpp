@@ -149,6 +149,7 @@ void Socket::on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb)
         return;
     }
 
+    sockfd->SetConnected();
     poller_->DelEvent(sockfd->RawFd());
     if (attach_event(sockfd, false) != 0) {
         cb(SocketException(ERR_OTHER,
@@ -183,7 +184,7 @@ SocketException Socket::get_socket_error(const SocketFd::Ptr& sockfd,
         case EAGAIN: return SocketException(ERR_SUCCESS, "OK");
         case ETIMEDOUT: return SocketException(ERR_TIMEOUT, "TIMEOUT");
         case ECONNREFUSED: return SocketException(ERR_REFUESD, "REFUESD");
-        default: return SocketException(ERR_OTHER, "OTHER");
+        default: return SocketException(ERR_OTHER, uv_strerror(error));
     }
 }
 

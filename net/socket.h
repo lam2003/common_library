@@ -67,16 +67,20 @@ class SocketFd final {
     typedef std::shared_ptr<SocketFd> Ptr;
     SocketFd(int fd, SockType type, const EventPoller::Ptr& poller)
     {
-        fd_     = fd;
-        type_   = type;
-        poller_ = poller;
+        fd_        = fd;
+        type_      = type;
+        poller_    = poller;
+        connected_ = false;
     }
 
     ~SocketFd()
     {
         poller_->DelEvent(fd_);
 
-        ::shutdown(fd_, SHUT_RDWR);
+        if (connected_) {
+            // 建立连接成功后才调用shutdown
+            ::shutdown(fd_, SHUT_RDWR);
+        }
         ::close(fd_);
     }
 
@@ -90,10 +94,16 @@ class SocketFd final {
         return type_;
     }
 
+    void SetConnected()
+    {
+        connected_ = true;
+    }
+
   private:
     int              fd_;
     SockType         type_;
     EventPoller::Ptr poller_;
+    bool             connected_;
 };
 
 class Socket final : public std::enable_shared_from_this<Socket> {

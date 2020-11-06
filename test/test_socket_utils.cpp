@@ -1,6 +1,7 @@
 #include "net/socket.h"
 #include "net/socket_utils.h"
 #include "poller/event_poller.h"
+#include "thread/worker.h"
 #include "utils/logger.h"
 #include "utils/time_ticker.h"
 #include <arpa/inet.h>
@@ -13,15 +14,15 @@
 using namespace std;
 using namespace common_library;
 
+#define TEST_TIME 10
 /**
  * socket工具库测试
  * @return
  */
 
-Semaphore sem;
-
 int main()
 {
+    Semaphore sem;
     //设置日志
     Logger::Instance().AddChannel(std::make_shared<ConsoleChannel>());
     Logger::Instance().SetWriter(
@@ -30,30 +31,31 @@ int main()
     TimeTicker();
 
     EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
-    Socket::Ptr      socket = std::make_shared<Socket>(poller, false);
-    socket->Connect("::1", 22, [](const SocketException& err) {
-        if (err) {
-            LOG_E << err.what();
-        }
-        else {
-            LOG_I << err.what();
-        }
-        sem.Post();
-    },10, "::", 12345);
+    Socket::Ptr      socket[TEST_TIME];
+    for (int i = 0; i < TEST_TIME; i++) {
+        socket[i] = std::make_shared<Socket>(poller, false);
+    }
 
-    sem.Wait();
+    for (int i = 0; i < TEST_TIME; i++) {
+        WorkerPool::Instance().GetWorker()->Async([i, &socket, &sem]() {
+            socket[i]->Connect(
+                "linmin.xyz", 80,
+                [&sem](const SocketException& err) {
+                    if (err) {
+                        LOG_E << err.what();
+                    }
+                    else {
+                        LOG_I << err.what();
+                    }
+                    sem.Post();
+                },
+                100);
+        });
+    }
 
-    socket->Connect("baidu.com", 80, [](const SocketException& err) {
-        if (err) {
-            LOG_E << err.what();
-        }
-        else {
-            LOG_I << err.what();
-        }
-        sem.Post();
-    });
-
-    sem.Wait();
+    for (int i = 0; i < TEST_TIME; i++) {
+        sem.Wait();
+    }
 
     return 0;
 }
