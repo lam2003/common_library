@@ -6,10 +6,6 @@ namespace common_library {
 
 int uv_translate_posix_error(int err)
 {
-    if (err < 0) {
-        return err;
-    }
-
     switch (err) {
         case ENOBUFS:
         case EINPROGRESS:

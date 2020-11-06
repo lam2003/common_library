@@ -31,7 +31,7 @@ int main()
 
     EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
     Socket::Ptr      socket = std::make_shared<Socket>(poller, false);
-    socket->Connect("ipv6.linmin.xyz", 80, [](const SocketException& err) {
+    socket->Connect("::1", 22, [](const SocketException& err) {
         if (err) {
             LOG_E << err.what();
         }
@@ -39,7 +39,7 @@ int main()
             LOG_I << err.what();
         }
         sem.Post();
-    });
+    },10, "::", 12345);
 
     sem.Wait();
 

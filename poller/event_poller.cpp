@@ -110,9 +110,12 @@ int EventPoller::DelEvent(int fd, PollDelCB&& cb)
     }
 
     if (IsCurrentThread()) {
-        bool success = epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) == 0 &&
-                       event_map_.erase(fd);
-        cb(success);
+        bool success = true;
+        if (event_map_.count(fd)) {
+            success = epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) == 0 &&
+                      event_map_.erase(fd);
+            cb(success);
+        }
         return success ? 0 : -1;
     }
 

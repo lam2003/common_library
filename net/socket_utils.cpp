@@ -110,45 +110,51 @@ int SocketUtils::Bind(int fd, const char* local_ip, uint16_t port, bool is_ipv6)
 {
     sockaddr* addr;
     socklen_t len;
+
     if (is_ipv6) {
-        sockaddr_in6 in;
-        bzero(&in, sizeof(in));
-        in.sin6_family = AF_INET6;
-        in.sin6_port   = htons(port);
+        sockaddr_in6* in =
+            reinterpret_cast<sockaddr_in6*>(malloc(sizeof(sockaddr_in6)));
+        bzero(in, sizeof(sockaddr_in6));
+        in->sin6_family = AF_INET6;
+        in->sin6_port   = htons(port);
 
         char buf[sizeof(in6_addr)];
         if (!inet_pton(AF_INET6, local_ip, buf)) {
             LOG_E << "socket bind failed. local_ip=" << local_ip
-                  << " ,port=" << port;
+                  << ", port=" << port;
             return -1;
         }
 
-        memcpy(&in.sin6_addr, buf, sizeof(in6_addr));
-        addr = reinterpret_cast<sockaddr*>(&in);
-        len  = sizeof(in);
+        memcpy(&in->sin6_addr, buf, sizeof(in6_addr));
+        addr = reinterpret_cast<sockaddr*>(in);
+        len  = sizeof(sockaddr_in6);
     }
     else {
-        sockaddr_in in;
-        bzero(&in, sizeof(in));
-        in.sin_family = AF_INET;
-        in.sin_port   = htons(port);
+        sockaddr_in* in =
+            reinterpret_cast<sockaddr_in*>(malloc(sizeof(sockaddr_in)));
+        bzero(in, sizeof(sockaddr_in));
+        in->sin_family = AF_INET;
+        in->sin_port   = htons(port);
 
         char buf[sizeof(in_addr)];
         if (!inet_pton(AF_INET, local_ip, buf)) {
             LOG_E << "socket bind failed. local_ip=" << local_ip
-                  << " ,port=" << port;
+                  << ", port=" << port;
             return -1;
         }
 
-        memcpy(&in.sin_addr, buf, sizeof(in_addr));
-        addr = reinterpret_cast<sockaddr*>(&in);
-        len  = sizeof(in);
+        memcpy(&in->sin_addr, buf, sizeof(in_addr));
+        addr = reinterpret_cast<sockaddr*>(in);
+        len  = sizeof(sockaddr_in);
     }
 
     int ret = ::bind(fd, addr, len);
+    // 先释放堆分配的addr
+    free(addr);
+
     if (ret == -1) {
         LOG_E << "socket bind failed. " << get_uv_errmsg()
-              << " ,local_ip=" << local_ip << " ,port=" << port;
+              << ", local_ip=" << local_ip << ", port=" << port;
     }
 
     return ret;
