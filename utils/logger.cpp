@@ -120,6 +120,7 @@ void AsyncLogWriter::Write(const std::shared_ptr<LogContext>& pctx)
 
 void AsyncLogWriter::run()
 {
+    set_thread_name("logger");
     while (running_) {
         sem_.Wait();
         flush_all();

@@ -63,6 +63,7 @@ enum ThreadPriority {
 bool set_thread_priority(ThreadPriority priority = TPRIORITY_NORMAL,
                          pthread_t      tid      = 0);
 
+bool set_thread_name(const std::string& name);
 }  // namespace common_library
 
 #endif

@@ -30,6 +30,7 @@ static inline bool init_update_ts_thread()
     // C++11局部静态变量构造是线程安全的
     static std::thread s_update_ts_thread([]() {
         uint64_t now_microseconds;
+        set_thread_name("update_time");
         while (true) {
             now_microseconds = get_current_microseconds_origin();
             s_now_microseconds.store(now_microseconds,
@@ -118,6 +119,11 @@ bool set_thread_priority(ThreadPriority priority, pthread_t tid)
     struct sched_param params;
     params.sched_priority = priorities[priority];
     return pthread_setschedparam(tid, SCHED_OTHER, &params) == 0;
+}
+
+bool set_thread_name(const std::string& name)
+{
+    return (pthread_setname_np(pthread_self(), name.c_str()) == 0);
 }
 
 }  // namespace common_library

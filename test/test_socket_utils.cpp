@@ -32,18 +32,28 @@ int main()
     EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
     Socket::Ptr      socket = std::make_shared<Socket>(poller, false);
     socket->Connect("linmin.xyz", 80, [](const SocketException& err) {
-        LOG_W << err.what();
+        if (err) {
+            LOG_E << err.what();
+        }
+        else {
+            LOG_I << err.what();
+        }
         sem.Post();
     });
 
     sem.Wait();
 
     socket->Connect("baidu.com", 80, [](const SocketException& err) {
-        LOG_W << err.what();
+        if (err) {
+            LOG_E << err.what();
+        }
+        else {
+            LOG_I << err.what();
+        }
         sem.Post();
     });
 
     sem.Wait();
-    
+
     return 0;
 }

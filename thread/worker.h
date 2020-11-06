@@ -79,6 +79,7 @@ class Worker final : public TaskExecutor {
   private:
     void run()
     {
+        set_thread_name("worker");
         set_thread_priority(priority_);
         Task::Ptr ptask = nullptr;
         while (true) {

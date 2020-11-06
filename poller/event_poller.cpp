@@ -157,6 +157,7 @@ DelayTask::Ptr EventPoller::DoDelayTask(uint64_t                    delay_ms,
 void EventPoller::RunLoop(bool blocked, bool register_current_poller)
 {
     if (blocked) {
+        set_thread_name("poller");
         set_thread_priority(priority_);
         std::lock_guard<std::mutex> lock(running_mux_);
         loop_tid_ = std::this_thread::get_id();
