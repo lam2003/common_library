@@ -12,11 +12,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <ifaddrs.h>
+#include <net/if.h>
+
 namespace common_library {
 
 int SocketUtils::Connect(const char* host,
                          uint16_t    port,
-                         const char* local_ip,
+                         const char* local_ip_or_intf,
                          uint16_t    local_port,
                          bool        async)
 {
@@ -74,14 +77,7 @@ int SocketUtils::Connect(const char* host,
     SetCloseWait(fd);
     SetCloExec(fd);
 
-    int ret = -1;
-    if (is_ipv6 && strcmp("0.0.0.0", local_ip) == 0) {
-        ret = Bind(fd, "::", local_port, is_ipv6);
-    }
-    else {
-        ret = Bind(fd, local_ip, local_port, is_ipv6);
-    }
-
+    int ret = Bind(fd, local_ip_or_intf, local_port, is_ipv6);
     if (ret == -1) {
         ::close(fd);
         return ret;
@@ -106,55 +102,144 @@ int SocketUtils::Connect(const char* host,
     return -1;
 }
 
-int SocketUtils::Bind(int fd, const char* local_ip, uint16_t port, bool is_ipv6)
+static int get_addr_by_if(int         family,
+                          const char* adapter_name,
+                          uint16_t    port,
+                          sockaddr*   addr)
 {
+    ifaddrs* list = nullptr;
+    int      ret  = getifaddrs(&list);
+    if (ret == -1) {
+        LOG_E << "getifaddrs failed. " << get_uv_errmsg();
+        return ret;
+    }
+
+    ifaddrs* cur   = list;
+    ifaddrs* found = nullptr;
+    // 先按网卡名查找
+    while (cur) {
+        if (cur->ifa_addr && cur->ifa_name &&
+            family == cur->ifa_addr->sa_family) {
+            if (strcmp(cur->ifa_name, adapter_name) == 0) {
+                found = cur;
+                break;
+            }
+        }
+        cur = cur->ifa_next;
+    }
+
+    // 按ip地址进行匹配
+    if (!found && (family == AF_INET || family == AF_INET6)) {
+        uint8_t addrbytes[sizeof(in6_addr)];
+        int     comparesize =
+            (family == AF_INET) ? sizeof(in_addr) : sizeof(in6_addr);
+
+        void* cmp = nullptr;
+        if (inet_pton(family, adapter_name, addrbytes) == 1) {
+            cur = list;
+            while (cur) {
+                if (cur->ifa_addr && family == cur->ifa_addr->sa_family) {
+                    if (family == AF_INET) {
+                        sockaddr_in* addr4 =
+                            reinterpret_cast<sockaddr_in*>(cur->ifa_addr);
+                        cmp = &(addr4->sin_addr);
+                    }
+                    else {
+                        sockaddr_in6* addr6 =
+                            reinterpret_cast<sockaddr_in6*>(cur->ifa_addr);
+                        cmp = &(addr6->sin6_addr);
+                    }
+
+                    if (memcmp(cmp, addrbytes, comparesize) == 0) {
+                        found = cur;
+                        break;
+                    }
+                }
+                cur = cur->ifa_next;
+            }
+        }
+    }
+
+    if (!found) {
+        if (family == AF_INET6 && strcmp(adapter_name, "0.0.0.0") == 0) {
+            (reinterpret_cast<sockaddr_in6*>(addr))->sin6_port   = htons(port);
+            (reinterpret_cast<sockaddr_in6*>(addr))->sin6_family = AF_INET6;
+            if (!inet_pton(
+                    AF_INET6, "::",
+                    &(reinterpret_cast<sockaddr_in6*>(addr))->sin6_addr)) {
+                return -1;
+            }
+            return 0;
+        }
+        else if (family == AF_INET && strcmp(adapter_name, "0.0.0.0") == 0) {
+            (reinterpret_cast<sockaddr_in*>(addr))->sin_port   = htons(port);
+            (reinterpret_cast<sockaddr_in*>(addr))->sin_family = AF_INET;
+            if (!inet_pton(AF_INET, "0.0.0.0",
+                           &(reinterpret_cast<sockaddr_in*>(addr))->sin_addr)) {
+                return -1;
+            }
+            return 0;
+        }
+        else {
+            return -1;
+        }
+    }
+
+    if (family == AF_INET6) {
+        *(reinterpret_cast<sockaddr_in6*>(addr)) =
+            *(reinterpret_cast<sockaddr_in6*>(found->ifa_addr));
+        (reinterpret_cast<sockaddr_in6*>(addr))->sin6_port = htons(port);
+    }
+    else {
+        *(reinterpret_cast<sockaddr_in*>(addr)) =
+            *(reinterpret_cast<sockaddr_in*>(found->ifa_addr));
+        (reinterpret_cast<sockaddr_in*>(addr))->sin_port = htons(port);
+    }
+
+    return 0;
+}
+
+int SocketUtils::Bind(int         fd,
+                      const char* local_ip_or_intf,
+                      uint16_t    port,
+                      bool        is_ipv6)
+{
+    int       family;
     sockaddr* addr;
     socklen_t len;
 
     if (is_ipv6) {
+        family = AF_INET6;
         sockaddr_in6* in =
             reinterpret_cast<sockaddr_in6*>(malloc(sizeof(sockaddr_in6)));
         bzero(in, sizeof(sockaddr_in6));
-        in->sin6_family = AF_INET6;
-        in->sin6_port   = htons(port);
-
-        char buf[sizeof(in6_addr)];
-        if (!inet_pton(AF_INET6, local_ip, buf)) {
-            LOG_E << "socket bind failed. local_ip=" << local_ip
-                  << ", port=" << port;
-            return -1;
-        }
-
-        memcpy(&in->sin6_addr, buf, sizeof(in6_addr));
         addr = reinterpret_cast<sockaddr*>(in);
         len  = sizeof(sockaddr_in6);
     }
     else {
+        family = AF_INET;
         sockaddr_in* in =
             reinterpret_cast<sockaddr_in*>(malloc(sizeof(sockaddr_in)));
         bzero(in, sizeof(sockaddr_in));
-        in->sin_family = AF_INET;
-        in->sin_port   = htons(port);
-
-        char buf[sizeof(in_addr)];
-        if (!inet_pton(AF_INET, local_ip, buf)) {
-            LOG_E << "socket bind failed. local_ip=" << local_ip
-                  << ", port=" << port;
-            return -1;
-        }
-
-        memcpy(&in->sin_addr, buf, sizeof(in_addr));
         addr = reinterpret_cast<sockaddr*>(in);
         len  = sizeof(sockaddr_in);
     }
 
-    int ret = ::bind(fd, addr, len);
-    // 先释放堆分配的addr
+    int ret = get_addr_by_if(family, local_ip_or_intf, port, addr);
+    if (ret == -1) {
+        free(addr);
+        LOG_W << "get address by interface failed. "
+              << "local_ip_or_intf=" << local_ip_or_intf;
+
+        return ret;
+    }
+
+    ret = ::bind(fd, addr, len);
     free(addr);
 
     if (ret == -1) {
         LOG_E << "socket bind failed. " << get_uv_errmsg()
-              << ", local_ip=" << local_ip << ", port=" << port;
+              << ", local_ip_or_intf=" << local_ip_or_intf << ", port=" << port;
     }
 
     return ret;

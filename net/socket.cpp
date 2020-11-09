@@ -27,7 +27,7 @@ int Socket::Connect(const std::string& host,
                     uint16_t           port,
                     const ErrorCB&     cb,
                     float              timeout_sec,
-                    const std::string& local_ip,
+                    const std::string& local_ip_or_intf,
                     uint16_t           local_port)
 {
     Close();
@@ -112,22 +112,23 @@ int Socket::Connect(const std::string& host,
         async_connect_cb;
 
     auto poller = poller_;
-    WorkerPool::Instance().GetWorker()->Async(
-        [host, port, local_ip, local_port, weak_async_connect_cb, poller] {
-            int fd = SocketUtils::Connect(host.c_str(), port, local_ip.c_str(),
-                                          local_port, true);
-            poller->Async([weak_async_connect_cb, fd]() {
-                auto strong_async_connect_cb = weak_async_connect_cb.lock();
-                if (strong_async_connect_cb) {
-                    (*strong_async_connect_cb)(fd);
-                }
-                else {
-                    LOG_D << "socket instance has been destroyed. just close "
-                             "fd and return ####1";
-                    CLOSE_SOCKET(fd);
-                }
-            });
+    WorkerPool::Instance().GetWorker()->Async([host, port, local_ip_or_intf,
+                                               local_port,
+                                               weak_async_connect_cb, poller] {
+        int fd = SocketUtils::Connect(
+            host.c_str(), port, local_ip_or_intf.c_str(), local_port, true);
+        poller->Async([weak_async_connect_cb, fd]() {
+            auto strong_async_connect_cb = weak_async_connect_cb.lock();
+            if (strong_async_connect_cb) {
+                (*strong_async_connect_cb)(fd);
+            }
+            else {
+                LOG_D << "socket instance has been destroyed. just close "
+                         "fd and return ####1";
+                CLOSE_SOCKET(fd);
+            }
         });
+    });
 
     return 0;
 }
