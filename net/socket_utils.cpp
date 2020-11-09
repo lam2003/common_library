@@ -24,7 +24,9 @@ int SocketUtils::Connect(const char* host,
                          bool        async)
 {
     sockaddr_storage addr;
-    DNSCache::Instance().Parse(host, addr);
+    if (!DNSCache::Instance().Parse(host, addr)) {
+        return -1;
+    }
 
     bool is_ipv6 = false;
     int  fd      = -1;

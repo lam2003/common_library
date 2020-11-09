@@ -49,7 +49,7 @@ BufferList::BufferList(List<Buffer::Ptr>& list)
 
 bool BufferList::empty()
 {
-    return iovec_off_ == iovec_.size();
+    return iovec_off_ == static_cast<int>(iovec_.size());
 }
 
 int BufferList::count()
@@ -75,7 +75,7 @@ void BufferList::reoffset(int n)
     int offset   = 0;
     int last_off = iovec_off_;
 
-    for (int i = last_off; i != iovec_.size(); i++) {
+    for (int i = last_off; i != static_cast<int>(iovec_.size()); i++) {
         struct iovec& ref = iovec_[i];
         offset += ref.iov_len;
         if (offset < n) {
@@ -117,7 +117,7 @@ int BufferList::send_l(int fd, int flags, bool udp)
         msg.msg_iov    = &iovec_[iovec_off_];
         msg.msg_iovlen = iovec_.size() - iovec_off_;
         int max        = udp ? 1 : IOV_MAX;
-        if (msg.msg_iovlen > max) {
+        if (msg.msg_iovlen > static_cast<size_t>(max)) {
             msg.msg_iovlen = max;
         }
 

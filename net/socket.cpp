@@ -11,7 +11,8 @@
 namespace common_library {
 
 Socket::Socket(const EventPoller::Ptr& poller, bool enable_mutex)
-    : sockfd_mux_(enable_mutex)
+    : sockfd_mux_(enable_mutex), send_buf_sending_mux_(enable_mutex),
+      send_buf_waiting_mux_(enable_mutex), cb_mux_(enable_mutex)
 {
     poller_ = poller;
 }
@@ -33,8 +34,6 @@ int Socket::Connect(const std::string& host,
     Close();
     std::weak_ptr<Socket> weak_self = shared_from_this();
 
-    // connect_cb
-    // 连接最终结果回调，无论如何都会执行
     auto connect_cb = [cb, weak_self](const SocketException& err) {
         auto strong_self = weak_self.lock();
         if (!strong_self) {
@@ -142,6 +141,17 @@ void Socket::Close()
     sockfd_ = nullptr;
 }
 
+void Socket::SetOnFlushed(FlushedCB cb)
+{
+    LOCK_GUARD(cb_mux_);
+    if (cb) {
+        flushed_cb_ = std::move(cb);
+    }
+    else {
+        flushed_cb_ = []() { return true; };
+    }
+}
+
 void Socket::on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb)
 {
     SocketException err = get_socket_error(sockfd);
@@ -152,7 +162,7 @@ void Socket::on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb)
 
     sockfd->SetConnected();
     poller_->DelEvent(sockfd->RawFd());
-    if (attach_event(sockfd, false) != 0) {
+    if (!attach_event(sockfd, false)) {
         cb(SocketException(ERR_OTHER,
                            "attach to poller failed when connected."));
         return;
@@ -160,9 +170,194 @@ void Socket::on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb)
     cb(err);
 }
 
-int Socket::attach_event(const SocketFd::Ptr& sockfd, bool is_udp)
+void Socket::stop_writeable_event(const SocketFd::Ptr& sockfd)
 {
-    return 0;
+    int event = 0;
+    if (enable_recv_.load(std::memory_order_acquire)) {
+        event |= PE_READ;
+    }
+
+    poller_->ModifyEvent(sockfd->RawFd(), event | PE_ERROR);
+}
+
+void Socket::start_writeable_event(const SocketFd::Ptr& sockfd)
+{
+    int event = 0;
+    if (enable_recv_.load(std::memory_order_acquire)) {
+        event |= PE_READ;
+    }
+
+    poller_->ModifyEvent(sockfd->RawFd(), event | PE_ERROR | PE_WRITE);
+}
+
+bool Socket::flush_data(const SocketFd::Ptr& sockfd, bool is_poller_thread)
+{
+    List<BufferList::Ptr> send_buf_sending_tmp;
+    {
+        LOCK_GUARD(send_buf_sending_mux_);
+        if (!send_buf_sending_.empty()) {
+            send_buf_sending_tmp.swap(send_buf_sending_);
+        }
+    }
+
+    if (send_buf_sending_tmp.empty()) {
+        send_flush_ticker_.Reset();
+        do {
+            {
+                LOCK_GUARD(send_buf_waiting_mux_);
+                if (!send_buf_waiting_.empty()) {
+                    send_buf_sending_tmp.emplace_back(
+                        std::make_shared<BufferList>(send_buf_waiting_));
+                    break;
+                }
+            }
+
+            // sending/waiting都为空
+            if (is_poller_thread) {
+                stop_writeable_event(sockfd);
+                on_flushed();
+            }
+            return true;
+        } while (0);
+    }
+
+    int  fd     = sockfd->RawFd();
+    bool is_udp = sockfd->Type() == SOCK_UDP;
+
+    while (!send_buf_sending_tmp.empty()) {
+        BufferList::Ptr& pkt = send_buf_sending_tmp.front();
+
+        int n = pkt->send(fd, socket_flags_, is_udp);
+        if (n > 0) {
+            if (pkt->empty()) {
+                send_buf_sending_tmp.pop_front();
+                continue;
+            }
+
+            if (!is_poller_thread) {
+                start_writeable_event(sockfd);
+            }
+            break;
+        }
+
+        // n <= 0
+        int err = get_uv_error();
+        if (err == EAGAIN) {
+            if (!is_poller_thread) {
+                start_writeable_event(sockfd);
+            }
+            break;
+        }
+
+        on_error(sockfd);
+        return false;
+    }
+
+    if (!send_buf_sending_tmp.empty()) {
+        LOCK_GUARD(send_buf_sending_mux_);
+        send_buf_sending_tmp.swap(send_buf_sending_);
+        send_buf_sending_.append(send_buf_sending_tmp);
+        return true;
+    }
+
+    // sending缓存已经全部发送完毕，说明该socket还可写，尝试继续写
+    // 如果是poller线程，我们尝试再次写一次(因为可能其他线程调用了send函数又有新数据了)
+    return is_poller_thread ? flush_data(sockfd, true) : true;
+}
+
+bool Socket::attach_event(const SocketFd::Ptr& sockfd, bool is_udp)
+{
+    if (!read_buf_) {
+        read_buf_ = std::make_shared<BufferRaw>(is_udp ? 0xFFFF : 128 * 1024);
+    }
+
+    std::weak_ptr<Socket>   weak_self   = shared_from_this();
+    std::weak_ptr<SocketFd> weak_sockfd = sockfd;
+    int                     ret =
+        poller_->AddEvent(sockfd->RawFd(), PE_READ | PE_WRITE | PE_ERROR,
+                          [weak_self, weak_sockfd, is_udp](int event) {
+                              auto strong_self   = weak_self.lock();
+                              auto strong_sockfd = weak_sockfd.lock();
+
+                              if (!strong_self || !strong_sockfd) {
+                                  return;
+                              }
+
+                              if (event & PE_READ) {
+                                  strong_self->on_read(strong_sockfd, is_udp);
+                              }
+                              if (event & PE_WRITE) {
+                                  strong_self->on_writeable(strong_sockfd);
+                              }
+                              if (event & PE_ERROR) {
+                                  strong_self->on_error(strong_sockfd);
+                              }
+                          });
+
+    return ret != -1;
+}
+
+void Socket::on_read(const SocketFd::Ptr& sockfd, bool is_udp)
+{
+    LOG_E << this;
+}
+
+void Socket::on_writeable(const SocketFd::Ptr& sockfd)
+{
+    bool sending_empty;
+    {
+        LOCK_GUARD(send_buf_sending_mux_);
+        sending_empty = send_buf_sending_.empty();
+    }
+    bool waiting_empty;
+    {
+        LOCK_GUARD(send_buf_waiting_mux_);
+        waiting_empty = send_buf_waiting_.empty();
+    }
+
+    if (sending_empty && waiting_empty) {
+        stop_writeable_event(sockfd);
+    }
+    else {
+        flush_data(sockfd, true);
+    }
+}
+
+bool Socket::on_error(const SocketFd::Ptr& sockfd)
+{
+    SocketException err = get_socket_error(sockfd);
+    {
+        LOCK_GUARD(sockfd_mux_);
+        if (!sockfd_) {
+            return false;
+        }
+        Close();
+    }
+
+    std::weak_ptr<Socket> weak_self = shared_from_this();
+    poller_->Async([weak_self, err]() {
+        auto strong_self = weak_self.lock();
+        if (!strong_self) {
+            return;
+        }
+        LOCK_GUARD(strong_self->cb_mux_);
+        strong_self->error_cb_(err);
+    });
+
+    return true;
+}
+
+void Socket::on_flushed()
+{
+    bool flag = false;
+
+    if (flushed_cb_) {
+        LOCK_GUARD(cb_mux_);
+        flag = flushed_cb_();
+    }
+    if (!flag) {
+        SetOnFlushed(nullptr);
+    }
 }
 
 SocketException Socket::get_socket_error(const SocketFd::Ptr& sockfd,

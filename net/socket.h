@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 
+#include <net/buffer.h>
 #include <poller/event_poller.h>
 #include <poller/timer.h>
 #include <utils/mutex_wrapper.h>
@@ -110,6 +111,7 @@ class Socket final : public std::enable_shared_from_this<Socket> {
   public:
     typedef std::shared_ptr<Socket>                     Ptr;
     typedef std::function<void(const SocketException&)> ErrorCB;
+    typedef std::function<bool()>                       FlushedCB;
 
     Socket(const EventPoller::Ptr& poller, bool enable_mutex);
 
@@ -122,10 +124,19 @@ class Socket final : public std::enable_shared_from_this<Socket> {
 
     void Close();
 
+    void SetOnFlushed(FlushedCB cb);
+
   private:
     void on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb);
 
-    int attach_event(const SocketFd::Ptr& sockfd, bool is_udp = false);
+    bool attach_event(const SocketFd::Ptr& sockfd, bool is_udp = false);
+    void stop_writeable_event(const SocketFd::Ptr& sockfd);
+    void start_writeable_event(const SocketFd::Ptr& sockfd);
+    bool flush_data(const SocketFd::Ptr& sockfd, bool is_poller_thread);
+    void on_read(const SocketFd::Ptr& sockfd, bool is_udp);
+    void on_writeable(const SocketFd::Ptr& sockfd);
+    bool on_error(const SocketFd::Ptr& sockfd);
+    void on_flushed();
 
     static SocketException get_socket_error(const SocketFd::Ptr& sockfd,
                                             bool try_errno = true);
@@ -136,8 +147,24 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     std::shared_ptr<Timer>                    connect_timer_;
     std::shared_ptr<std::function<void(int)>> async_connect_cb_;
 
-    MutexWrapper<std::mutex> sockfd_mux_;
-    SocketFd::Ptr            sockfd_;
+    MutexWrapper<std::recursive_mutex> sockfd_mux_;
+    SocketFd::Ptr                      sockfd_;
+
+    BufferRaw::Ptr read_buf_ = nullptr;
+
+    Ticker                   send_flush_ticker_;
+    MutexWrapper<std::mutex> send_buf_sending_mux_;
+    List<BufferList::Ptr>    send_buf_sending_;
+    MutexWrapper<std::mutex> send_buf_waiting_mux_;
+    List<Buffer::Ptr>        send_buf_waiting_;
+
+    std::atomic<bool> enable_recv_{true};
+
+    MutexWrapper<std::mutex> cb_mux_;
+    ErrorCB                  error_cb_;
+    FlushedCB                flushed_cb_;
+
+    int socket_flags_;
 };
 
 }  // namespace common_library

@@ -9,6 +9,7 @@ add_library(lmcomm
     ${CMAKE_CURRENT_SOURCE_DIR}/net/socket_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/net/socket.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/net/dns_cache.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/buffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/poller/event_poller.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/poller/pipe_wrapper.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/poller/timer.cpp

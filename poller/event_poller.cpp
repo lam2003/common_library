@@ -131,7 +131,7 @@ int EventPoller::ModifyEvent(int fd, int event)
     TimeTicker();
 
     struct epoll_event ev;
-    ev.events  = event;
+    ev.events  = TO_EPOLL(event);
     ev.data.fd = fd;
     // epoll线程安全
     return epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, fd, &ev);
