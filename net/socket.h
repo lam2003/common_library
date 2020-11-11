@@ -112,6 +112,9 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     typedef std::shared_ptr<Socket>                     Ptr;
     typedef std::function<void(const SocketException&)> ErrorCB;
     typedef std::function<bool()>                       FlushedCB;
+    typedef std::function<
+        void(const Buffer::Ptr&, sockaddr_storage*, socklen_t)>
+        ReadCB;
 
     Socket(const EventPoller::Ptr& poller, bool enable_mutex);
 
@@ -127,15 +130,16 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     void SetOnFlushed(FlushedCB cb);
 
   private:
-    void on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb);
-
     bool attach_event(const SocketFd::Ptr& sockfd, bool is_udp = false);
     void stop_writeable_event(const SocketFd::Ptr& sockfd);
     void start_writeable_event(const SocketFd::Ptr& sockfd);
     bool flush_data(const SocketFd::Ptr& sockfd, bool is_poller_thread);
-    void on_read(const SocketFd::Ptr& sockfd, bool is_udp);
+
+    void on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb);
+    int  on_read(const SocketFd::Ptr& sockfd, bool is_udp);
     void on_writeable(const SocketFd::Ptr& sockfd);
     bool on_error(const SocketFd::Ptr& sockfd);
+    bool emit_error(const SocketException& err);
     void on_flushed();
 
     static SocketException get_socket_error(const SocketFd::Ptr& sockfd,
@@ -163,6 +167,7 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     MutexWrapper<std::mutex> cb_mux_;
     ErrorCB                  error_cb_;
     FlushedCB                flushed_cb_;
+    ReadCB                   read_cb_;
 
     int socket_flags_;
 };

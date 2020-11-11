@@ -152,24 +152,6 @@ void Socket::SetOnFlushed(FlushedCB cb)
     }
 }
 
-void Socket::on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb)
-{
-    SocketException err = get_socket_error(sockfd);
-    if (err) {
-        cb(err);
-        return;
-    }
-
-    sockfd->SetConnected();
-    poller_->DelEvent(sockfd->RawFd());
-    if (!attach_event(sockfd, false)) {
-        cb(SocketException(ERR_OTHER,
-                           "attach to poller failed when connected."));
-        return;
-    }
-    cb(err);
-}
-
 void Socket::stop_writeable_event(const SocketFd::Ptr& sockfd)
 {
     int event = 0;
@@ -297,9 +279,67 @@ bool Socket::attach_event(const SocketFd::Ptr& sockfd, bool is_udp)
     return ret != -1;
 }
 
-void Socket::on_read(const SocketFd::Ptr& sockfd, bool is_udp)
+void Socket::on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb)
 {
-    LOG_E << this;
+    SocketException err = get_socket_error(sockfd);
+    if (err) {
+        cb(err);
+        return;
+    }
+
+    sockfd->SetConnected();
+    poller_->DelEvent(sockfd->RawFd());
+    if (!attach_event(sockfd, false)) {
+        cb(SocketException(ERR_OTHER,
+                           "attach to poller failed when connected."));
+        return;
+    }
+    cb(err);
+}
+
+int Socket::on_read(const SocketFd::Ptr& sockfd, bool is_udp)
+{
+    int  ret    = 0;
+    int  nread  = 0;
+    auto buffer = read_buf_;
+
+    auto             data     = buffer->Data();
+    int              capacity = buffer->Capacity() - 1;
+    sockaddr_storage addr;
+    socklen_t        len = sizeof(addr);
+
+    while (enable_recv_.load(std::memory_order_acquire)) {
+        do {
+            nread = ::recvfrom(sockfd->RawFd(), data, capacity, 0,
+                               reinterpret_cast<sockaddr*>(&addr), &len);
+        } while (nread == -1 && get_uv_error() == EINTR);
+
+        if (nread == 0) {
+            if (!is_udp) {
+                emit_error(SocketException(ERR_EOF, "read eof"));
+            }
+            return ret;
+        }
+
+        if (nread == -1) {
+            if (get_uv_error() != EAGAIN) {
+                on_error(sockfd);
+            }
+            return ret;
+        }
+
+        ret += nread;
+        data[nread] = '\0';
+        buffer->SetSize(nread);
+
+        LOCK_GUARD(cb_mux_);
+        if (read_cb_) {
+            LOG_E << "AAAAAAAAAAAAAAAAAAAA";
+            read_cb_(buffer, &addr, len);
+        }
+    }
+
+    return 0;
 }
 
 void Socket::on_writeable(const SocketFd::Ptr& sockfd)
@@ -325,7 +365,11 @@ void Socket::on_writeable(const SocketFd::Ptr& sockfd)
 
 bool Socket::on_error(const SocketFd::Ptr& sockfd)
 {
-    SocketException err = get_socket_error(sockfd);
+    return emit_error(get_socket_error(sockfd));
+}
+
+bool Socket::emit_error(const SocketException& err)
+{
     {
         LOCK_GUARD(sockfd_mux_);
         if (!sockfd_) {
@@ -341,7 +385,9 @@ bool Socket::on_error(const SocketFd::Ptr& sockfd)
             return;
         }
         LOCK_GUARD(strong_self->cb_mux_);
-        strong_self->error_cb_(err);
+        if (strong_self->error_cb_) {
+            strong_self->error_cb_(err);
+        }
     });
 
     return true;
@@ -351,9 +397,11 @@ void Socket::on_flushed()
 {
     bool flag = false;
 
-    if (flushed_cb_) {
+    {
         LOCK_GUARD(cb_mux_);
-        flag = flushed_cb_();
+        if (flushed_cb_) {
+            flag = flushed_cb_();
+        }
     }
     if (!flag) {
         SetOnFlushed(nullptr);
