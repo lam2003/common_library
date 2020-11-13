@@ -1,8 +1,12 @@
+project(lmcomm)
 cmake_minimum_required(VERSION 3.16)
 
 if(BUILD_LMCOMM_WITH_DEBUG)
     message("####################### build width debug #######################")
     add_compile_options(-g3 -O0)
+else()
+    message("####################### build width release #######################")
+    add_compile_options(-O3)
 endif()
 
 add_library(lmcomm
