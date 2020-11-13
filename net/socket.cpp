@@ -141,14 +141,44 @@ void Socket::Close()
     sockfd_ = nullptr;
 }
 
-void Socket::SetOnFlushed(FlushedCB cb)
+void Socket::SetOnError(ErrorCB&& cb)
+{
+    LOCK_GUARD(cb_mux_);
+    if (cb) {
+        error_cb_ = std::move(cb);
+    }
+    else {
+        error_cb_ = [this](const SocketException& err) {
+            LOG_E << "socket[" << this << "] " << err.what();
+        };
+    }
+}
+
+void Socket::SetOnFlushed(FlushedCB&& cb)
 {
     LOCK_GUARD(cb_mux_);
     if (cb) {
         flushed_cb_ = std::move(cb);
     }
     else {
-        flushed_cb_ = []() { return true; };
+        flushed_cb_ = [this]() {
+            LOG_D << "socket[" << this << "] flushed";
+            return true;
+        };
+    }
+}
+
+void Socket::SetOnRead(ReadCB&& cb)
+{
+    LOCK_GUARD(cb_mux_);
+    if (cb) {
+        read_cb_ = std::move(cb);
+    }
+    else {
+        read_cb_ = [this](const Buffer::Ptr&, sockaddr_storage*, socklen_t) {
+            LOG_W << "socket[" << this << "] "
+                  << "not set read callback";
+        };
     }
 }
 
@@ -322,6 +352,7 @@ int Socket::on_read(const SocketFd::Ptr& sockfd, bool is_udp)
         }
 
         if (nread == -1) {
+            // 如果errno==EAGAIN，socket读缓存被取完，正常返回
             if (get_uv_error() != EAGAIN) {
                 on_error(sockfd);
             }
@@ -334,7 +365,6 @@ int Socket::on_read(const SocketFd::Ptr& sockfd, bool is_udp)
 
         LOCK_GUARD(cb_mux_);
         if (read_cb_) {
-            LOG_E << "AAAAAAAAAAAAAAAAAAAA";
             read_cb_(buffer, &addr, len);
         }
     }

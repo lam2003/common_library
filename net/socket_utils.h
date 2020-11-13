@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#include <string>
+
+struct sockaddr_storage;
+
 namespace common_library {
 
 class SocketUtils {
@@ -33,6 +37,8 @@ class SocketUtils {
     static int SetCloseWait(int fd, int seconds = 0);
 
     static int SetSendTimeout(int fd, int seconds = 10);
+
+    static std::string Addr2String(sockaddr_storage* addr);
 };
 }  // namespace common_library
 

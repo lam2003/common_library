@@ -24,6 +24,8 @@ int SocketUtils::Connect(const char* host,
                          bool        async)
 {
     sockaddr_storage addr;
+    bzero(&addr, sizeof(addr));
+
     if (!DNSCache::Instance().Parse(host, addr)) {
         return -1;
     }
@@ -38,15 +40,10 @@ int SocketUtils::Connect(const char* host,
                 LOG_E << "create ipv6 socket failed";
                 return -1;
             }
-            {
-                char          strbuf[INET6_ADDRSTRLEN];
-                sockaddr_in6* in    = reinterpret_cast<sockaddr_in6*>(&addr);
-                in->sin6_port       = htons(port);
-                std::string straddr = inet_ntop(AF_INET6, &in->sin6_addr,
-                                                strbuf, INET6_ADDRSTRLEN);
-                LOG_I << "dns ok. [ipv6] " << host << "-->" << straddr;
-            }
-            is_ipv6 = true;
+
+            sockaddr_in6* in = reinterpret_cast<sockaddr_in6*>(&addr);
+            in->sin6_port    = htons(port);
+            is_ipv6          = true;
             break;
         }
         case AF_INET: {
@@ -55,14 +52,9 @@ int SocketUtils::Connect(const char* host,
                 LOG_E << "create ipv4 socket failed";
                 return -1;
             }
-            {
-                char         strbuf[INET_ADDRSTRLEN];
-                sockaddr_in* in = reinterpret_cast<sockaddr_in*>(&addr);
-                in->sin_port    = htons(port);
-                std::string straddr =
-                    inet_ntop(AF_INET, &in->sin_addr, strbuf, INET_ADDRSTRLEN);
-                LOG_I << "dns ok. [ipv4] " << host << "-->" << straddr;
-            }
+
+            sockaddr_in* in = reinterpret_cast<sockaddr_in*>(&addr);
+            in->sin_port    = htons(port);
             break;
         }
         default: {
@@ -85,6 +77,10 @@ int SocketUtils::Connect(const char* host,
         return ret;
     }
 
+    std::string str_addr;
+    str_addr = Addr2String(&addr);
+    LOG_D << "connect to " << str_addr;
+
     ret = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
     if (ret == 0) {
         // 同步连接成功
@@ -96,8 +92,7 @@ int SocketUtils::Connect(const char* host,
         return fd;
     }
 
-    LOG_E << "connect to " << host << " " << port << " failed. "
-          << get_uv_errmsg();
+    LOG_E << "connect to " << str_addr << " failed. " << get_uv_errmsg();
 
     ::close(fd);
 
@@ -383,4 +378,33 @@ int SocketUtils::SetSendTimeout(int fd, int seconds)
     }
     return ret;
 }
+
+std::string SocketUtils::Addr2String(sockaddr_storage* addr)
+{
+    std::ostringstream oss;
+    std::string        str_ip;
+    int                port                  = 0;
+    char               buf[INET6_ADDRSTRLEN] = {0};
+
+    if (addr->ss_family == AF_INET6) {
+        sockaddr_in6* in = reinterpret_cast<sockaddr_in6*>(addr);
+        str_ip = inet_ntop(AF_INET6, &in->sin6_addr, buf, sizeof(buf));
+        port   = ntohs(in->sin6_port);
+        oss << "[ipv6] ";
+    }
+    else if (addr->ss_family == AF_INET) {
+        sockaddr_in* in = reinterpret_cast<sockaddr_in*>(addr);
+        str_ip          = inet_ntop(AF_INET, &in->sin_addr, buf, sizeof(buf));
+        port            = ntohs(in->sin_port);
+        oss << "[ipv4] ";
+    }
+    else {
+        return "";
+    }
+
+    oss << str_ip << ":" << port;
+
+    return oss.str();
+}
+
 }  // namespace common_library

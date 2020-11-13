@@ -127,7 +127,9 @@ class Socket final : public std::enable_shared_from_this<Socket> {
 
     void Close();
 
-    void SetOnFlushed(FlushedCB cb);
+    void SetOnError(ErrorCB&& cb);
+    void SetOnFlushed(FlushedCB&& cb);
+    void SetOnRead(ReadCB&& cb);
 
   private:
     bool attach_event(const SocketFd::Ptr& sockfd, bool is_udp = false);
@@ -151,23 +153,23 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     std::shared_ptr<Timer>                    connect_timer_;
     std::shared_ptr<std::function<void(int)>> async_connect_cb_;
 
-    MutexWrapper<std::recursive_mutex> sockfd_mux_;
-    SocketFd::Ptr                      sockfd_;
+    mutable MutexWrapper<std::recursive_mutex> sockfd_mux_;
+    SocketFd::Ptr                              sockfd_;
 
     BufferRaw::Ptr read_buf_ = nullptr;
 
-    Ticker                   send_flush_ticker_;
-    MutexWrapper<std::mutex> send_buf_sending_mux_;
-    List<BufferList::Ptr>    send_buf_sending_;
-    MutexWrapper<std::mutex> send_buf_waiting_mux_;
-    List<Buffer::Ptr>        send_buf_waiting_;
+    Ticker                           send_flush_ticker_;
+    mutable MutexWrapper<std::mutex> send_buf_sending_mux_;
+    List<BufferList::Ptr>            send_buf_sending_;
+    mutable MutexWrapper<std::mutex> send_buf_waiting_mux_;
+    List<Buffer::Ptr>                send_buf_waiting_;
 
     std::atomic<bool> enable_recv_{true};
 
-    MutexWrapper<std::mutex> cb_mux_;
-    ErrorCB                  error_cb_;
-    FlushedCB                flushed_cb_;
-    ReadCB                   read_cb_;
+    mutable MutexWrapper<std::mutex> cb_mux_;
+    ErrorCB                          error_cb_;
+    FlushedCB                        flushed_cb_;
+    ReadCB                           read_cb_;
 
     int socket_flags_;
 };
