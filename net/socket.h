@@ -131,6 +131,8 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     void SetOnFlushed(FlushedCB&& cb);
     void SetOnRead(ReadCB&& cb);
 
+    std::string Stringify();
+
   private:
     bool attach_event(const SocketFd::Ptr& sockfd, bool is_udp = false);
     void stop_writeable_event(const SocketFd::Ptr& sockfd);

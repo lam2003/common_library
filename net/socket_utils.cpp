@@ -390,13 +390,11 @@ std::string SocketUtils::Addr2String(sockaddr_storage* addr)
         sockaddr_in6* in = reinterpret_cast<sockaddr_in6*>(addr);
         str_ip = inet_ntop(AF_INET6, &in->sin6_addr, buf, sizeof(buf));
         port   = ntohs(in->sin6_port);
-        oss << "[ipv6] ";
     }
     else if (addr->ss_family == AF_INET) {
         sockaddr_in* in = reinterpret_cast<sockaddr_in*>(addr);
         str_ip          = inet_ntop(AF_INET, &in->sin_addr, buf, sizeof(buf));
         port            = ntohs(in->sin_port);
-        oss << "[ipv4] ";
     }
     else {
         return "";

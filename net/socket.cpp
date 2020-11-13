@@ -182,6 +182,32 @@ void Socket::SetOnRead(ReadCB&& cb)
     }
 }
 
+std::string Socket::Stringify()
+{
+    sockaddr_storage addr;
+    bzero(&addr, sizeof(addr));
+    socklen_t len = sizeof(addr);
+    bool      ok  = false;
+
+    {
+        LOCK_GUARD(sockfd_mux_);
+        if (sockfd_) {
+            if (getsockname(sockfd_->RawFd(),
+                            reinterpret_cast<sockaddr*>(&addr), &len) == 0) {
+                ok = true;
+            }
+        }
+    }
+
+    std::ostringstream oss;
+    oss << "socket[" << this << "] ";
+    if (ok) {
+        oss << SocketUtils::Addr2String(&addr);
+    }
+
+    return oss.str();
+}
+
 void Socket::stop_writeable_event(const SocketFd::Ptr& sockfd)
 {
     int event = 0;
