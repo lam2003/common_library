@@ -15,6 +15,10 @@ Socket::Socket(const EventPoller::Ptr& poller, bool enable_mutex)
       send_buf_waiting_mux_(enable_mutex), cb_mux_(enable_mutex)
 {
     poller_ = poller;
+
+    SetOnError(nullptr);
+    SetOnFlushed(nullptr);
+    SetOnRead(nullptr);
 }
 
 #define CLOSE_SOCKET(fd)                                                       \
@@ -149,7 +153,7 @@ void Socket::SetOnError(ErrorCB&& cb)
     }
     else {
         error_cb_ = [this](const SocketException& err) {
-            LOG_E << "socket[" << this << "] " << err.what();
+            LOG_E << Stringify() << " " << err.what();
         };
     }
 }
@@ -162,7 +166,7 @@ void Socket::SetOnFlushed(FlushedCB&& cb)
     }
     else {
         flushed_cb_ = [this]() {
-            LOG_D << "socket[" << this << "] flushed";
+            LOG_D << Stringify() << " flushed";
             return true;
         };
     }
@@ -176,8 +180,7 @@ void Socket::SetOnRead(ReadCB&& cb)
     }
     else {
         read_cb_ = [this](const Buffer::Ptr&, sockaddr_storage*, socklen_t) {
-            LOG_W << "socket[" << this << "] "
-                  << "not set read callback";
+            LOG_W << Stringify() << " not set read callback";
         };
     }
 }
@@ -200,8 +203,9 @@ std::string Socket::Stringify()
     }
 
     std::ostringstream oss;
-    oss << "socket[" << this << "] ";
+    oss << "socket[" << this << "]";
     if (ok) {
+        oss << " ";
         oss << SocketUtils::Addr2String(&addr);
     }
 
