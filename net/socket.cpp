@@ -8,6 +8,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define CLOSE_SOCKET(fd)                                                       \
+    {                                                                          \
+        if (fd != -1) {                                                        \
+            ::close(fd);                                                       \
+        }                                                                      \
+    }
+
 namespace common_library {
 
 Socket::Socket(const EventPoller::Ptr& poller, bool enable_mutex)
@@ -21,12 +28,10 @@ Socket::Socket(const EventPoller::Ptr& poller, bool enable_mutex)
     SetOnRead(nullptr);
 }
 
-#define CLOSE_SOCKET(fd)                                                       \
-    {                                                                          \
-        if (fd != -1) {                                                        \
-            ::close(fd);                                                       \
-        }                                                                      \
-    }
+Socket::~Socket()
+{
+    LOG_I << this;
+}
 
 int Socket::Connect(const std::string& host,
                     uint16_t           port,

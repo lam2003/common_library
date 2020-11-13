@@ -118,6 +118,8 @@ class Socket final : public std::enable_shared_from_this<Socket> {
 
     Socket(const EventPoller::Ptr& poller, bool enable_mutex);
 
+    ~Socket();
+
     int Connect(const std::string& host,
                 uint16_t           port,
                 const ErrorCB&     cb,

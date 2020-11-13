@@ -25,6 +25,7 @@ class Worker final : public TaskExecutor {
     {
         Shutdown();
         Wait();
+        LOG_I << this;
     }
 
   public:
