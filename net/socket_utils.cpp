@@ -150,43 +150,45 @@ static int get_addr_by_if(int          family,
         }
     }
 
-    if (!found && strcmp(*adapter_name, "0.0.0.0") == 0) {
-        if (family == AF_INET6) {
-            (reinterpret_cast<sockaddr_in6*>(addr))->sin6_port   = htons(port);
-            (reinterpret_cast<sockaddr_in6*>(addr))->sin6_family = AF_INET6;
-            *adapter_name                                        = "::";
-            if (!inet_pton(
-                    AF_INET6, "::",
-                    &(reinterpret_cast<sockaddr_in6*>(addr))->sin6_addr)) {
-                return -1;
-            }
-            return 0;
-        }
-        else if (family == AF_INET) {
-            (reinterpret_cast<sockaddr_in*>(addr))->sin_port   = htons(port);
-            (reinterpret_cast<sockaddr_in*>(addr))->sin_family = AF_INET;
-            if (!inet_pton(AF_INET, "0.0.0.0",
-                           &(reinterpret_cast<sockaddr_in*>(addr))->sin_addr)) {
-                return -1;
-            }
-            return 0;
+    bool is_ipv6 = (family == AF_INET6);
+
+    (is_ipv6 ? (reinterpret_cast<sockaddr_in6*>(addr))->sin6_port :
+               (reinterpret_cast<sockaddr_in*>(addr))->sin_port) = htons(port);
+
+    if (found) {
+        if (is_ipv6) {
+            *(reinterpret_cast<sockaddr_in6*>(addr)) =
+                *(reinterpret_cast<sockaddr_in6*>(found->ifa_addr));
         }
         else {
+            *(reinterpret_cast<sockaddr_in*>(addr)) =
+                *(reinterpret_cast<sockaddr_in*>(found->ifa_addr));
+        }
+    }
+    else if (!found && strcmp(*adapter_name, "0.0.0.0") == 0) {
+        (is_ipv6 ? (reinterpret_cast<sockaddr_in6*>(addr))->sin6_family :
+                   (reinterpret_cast<sockaddr_in*>(addr))->sin_family) = family;
+        *adapter_name = (is_ipv6 ? "::" : "0.0.0.0");
+
+        void* pa = nullptr;
+        if (is_ipv6) {
+            pa = &(reinterpret_cast<sockaddr_in6*>(addr))->sin6_addr;
+        }
+        else {
+            pa = &(reinterpret_cast<sockaddr_in*>(addr))->sin_addr;
+        }
+
+        if (!inet_pton(family, *adapter_name, pa)) {
+            freeifaddrs(list);
             return -1;
         }
     }
-
-    if (family == AF_INET6) {
-        *(reinterpret_cast<sockaddr_in6*>(addr)) =
-            *(reinterpret_cast<sockaddr_in6*>(found->ifa_addr));
-        (reinterpret_cast<sockaddr_in6*>(addr))->sin6_port = htons(port);
-    }
     else {
-        *(reinterpret_cast<sockaddr_in*>(addr)) =
-            *(reinterpret_cast<sockaddr_in*>(found->ifa_addr));
-        (reinterpret_cast<sockaddr_in*>(addr))->sin_port = htons(port);
+        freeifaddrs(list);
+        return -1;
     }
 
+    freeifaddrs(list);
     return 0;
 }
 
