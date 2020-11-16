@@ -15,6 +15,11 @@
         }                                                                      \
     }
 
+#define SOCKET_LOG(logger, ptr, err)                                           \
+    logger << ptr->GetIdentifier() << " " << ptr->GetLocalIP() << ":"          \
+           << ptr->GetLocalPort() << "-->" << ptr->GetPeerIP() << ":"          \
+           << ptr->GetPeerPort() << ", " << err.what();
+
 namespace common_library {
 
 Socket::Socket(const EventPoller::Ptr& poller, bool enable_mutex)
@@ -60,18 +65,10 @@ int Socket::Connect(const std::string& host,
             // 错误发生，将fd从epoll中移除
             LOCK_GUARD(strong_self->sockfd_mux_);
             strong_self->sockfd_ = nullptr;
-            LOG_E << strong_self->GetIdentifier() << " "
-                  << strong_self->GetLocalIP() << ":"
-                  << strong_self->GetLocalPort() << "-->"
-                  << strong_self->GetPeerIP() << ":"
-                  << strong_self->GetPeerPort() << ", " << err.what();
+            SOCKET_LOG(LOG_E, strong_self, err)
         }
         else {
-            LOG_I << strong_self->GetIdentifier() << " "
-                  << strong_self->GetLocalIP() << ":"
-                  << strong_self->GetLocalPort() << "-->"
-                  << strong_self->GetPeerIP() << ":"
-                  << strong_self->GetPeerPort() << ", " << err.what();
+            SOCKET_LOG(LOG_I, strong_self, err);
         }
 
         // 给用户回调connect结果
@@ -173,9 +170,7 @@ void Socket::SetOnError(ErrorCB&& cb)
         error_cb_ = std::move(cb);
     }
     else {
-        error_cb_ = [this](const SocketException& err) {
-            LOG_E << GetIdentifier() << " " << err.what();
-        };
+        error_cb_ = [this](const SocketException& err) {};
     }
 }
 
@@ -186,10 +181,7 @@ void Socket::SetOnFlushed(FlushedCB&& cb)
         flushed_cb_ = std::move(cb);
     }
     else {
-        flushed_cb_ = [this]() {
-            LOG_D << GetIdentifier() << " flushed";
-            return true;
-        };
+        flushed_cb_ = [this]() { return true; };
     }
 }
 
@@ -200,9 +192,7 @@ void Socket::SetOnRead(ReadCB&& cb)
         read_cb_ = std::move(cb);
     }
     else {
-        read_cb_ = [this](const Buffer::Ptr&, sockaddr_storage*, socklen_t) {
-            LOG_W << GetIdentifier() << " not set read callback";
-        };
+        read_cb_ = [this](const Buffer::Ptr&, sockaddr_storage*, socklen_t) {};
     }
 }
 
@@ -468,9 +458,7 @@ bool Socket::emit_error(const SocketException& err)
 {
     {
         LOCK_GUARD(sockfd_mux_);
-        LOG_E << GetIdentifier() << " " << GetLocalIP() << ":" << GetLocalPort()
-              << "-->" << GetPeerIP() << ":" << GetPeerPort() << ", "
-              << err.what();
+        SOCKET_LOG(LOG_E, this, err);
         if (!sockfd_) {
             return false;
         }
