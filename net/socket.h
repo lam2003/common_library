@@ -9,6 +9,7 @@
 #include <poller/event_poller.h>
 #include <poller/timer.h>
 #include <utils/mutex_wrapper.h>
+#include <utils/noncopyable.h>
 
 #include <sys/socket.h>
 #include <unistd.h>
@@ -107,7 +108,25 @@ class SocketFd final {
     bool             connected_;
 };
 
-class Socket final : public std::enable_shared_from_this<Socket> {
+class SocketInfo {
+  public:
+    SocketInfo()          = default;
+    virtual ~SocketInfo() = default;
+
+  public:
+    virtual std::string GetLocalIP() const   = 0;
+    virtual std::string GetPeerIP() const    = 0;
+    virtual uint16_t    GetLocalPort() const = 0;
+    virtual uint16_t    GetPeerPort() const  = 0;
+    virtual std::string GetIdentifier() const
+    {
+        return "";
+    }
+};
+
+class Socket final : public std::enable_shared_from_this<Socket>,
+                     public noncopyable,
+                     public SocketInfo {
   public:
     typedef std::shared_ptr<Socket>                     Ptr;
     typedef std::function<void(const SocketException&)> ErrorCB;
@@ -133,7 +152,13 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     void SetOnFlushed(FlushedCB&& cb);
     void SetOnRead(ReadCB&& cb);
 
-    std::string Stringify();
+  public:
+    // implement socket info interface
+    std::string GetLocalIP() const override;
+    std::string GetPeerIP() const override;
+    uint16_t    GetLocalPort() const override;
+    uint16_t    GetPeerPort() const override;
+    std::string GetIdentifier() const override;
 
   private:
     bool attach_event(const SocketFd::Ptr& sockfd, bool is_udp = false);

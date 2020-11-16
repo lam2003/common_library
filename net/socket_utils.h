@@ -38,7 +38,17 @@ class SocketUtils {
 
     static int SetSendTimeout(int fd, int seconds = 10);
 
-    static std::string Addr2String(sockaddr_storage* addr);
+    static std::string GetIPFromAddr(sockaddr_storage* addr);
+
+    static uint16_t GetPortFromAddr(sockaddr_storage* addr);
+
+    static std::string GetLocalIP(int fd);
+
+    static std::string GetPeerIP(int fd);
+
+    static uint16_t GetLocalPort(int fd);
+
+    static uint16_t GetPeerPort(int fd);
 };
 }  // namespace common_library
 

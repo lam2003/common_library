@@ -22,6 +22,9 @@ Socket::Socket(const EventPoller::Ptr& poller, bool enable_mutex)
       send_buf_waiting_mux_(enable_mutex), cb_mux_(enable_mutex)
 {
     poller_ = poller;
+    if (!poller_) {
+        poller_ = EventPollerPool::Instance().GetPoller();
+    }
 
     SetOnError(nullptr);
     SetOnFlushed(nullptr);
@@ -30,6 +33,7 @@ Socket::Socket(const EventPoller::Ptr& poller, bool enable_mutex)
 
 Socket::~Socket()
 {
+    Close();
     LOG_I << this;
 }
 
@@ -56,6 +60,18 @@ int Socket::Connect(const std::string& host,
             // 错误发生，将fd从epoll中移除
             LOCK_GUARD(strong_self->sockfd_mux_);
             strong_self->sockfd_ = nullptr;
+            LOG_E << strong_self->GetIdentifier() << " "
+                  << strong_self->GetLocalIP() << ":"
+                  << strong_self->GetLocalPort() << "-->"
+                  << strong_self->GetPeerIP() << ":"
+                  << strong_self->GetPeerPort() << ", " << err.what();
+        }
+        else {
+            LOG_I << strong_self->GetIdentifier() << " "
+                  << strong_self->GetLocalIP() << ":"
+                  << strong_self->GetLocalPort() << "-->"
+                  << strong_self->GetPeerIP() << ":"
+                  << strong_self->GetPeerPort() << ", " << err.what();
         }
 
         // 给用户回调connect结果
@@ -158,7 +174,7 @@ void Socket::SetOnError(ErrorCB&& cb)
     }
     else {
         error_cb_ = [this](const SocketException& err) {
-            LOG_E << Stringify() << " " << err.what();
+            LOG_E << GetIdentifier() << " " << err.what();
         };
     }
 }
@@ -171,7 +187,7 @@ void Socket::SetOnFlushed(FlushedCB&& cb)
     }
     else {
         flushed_cb_ = [this]() {
-            LOG_D << Stringify() << " flushed";
+            LOG_D << GetIdentifier() << " flushed";
             return true;
         };
     }
@@ -185,36 +201,51 @@ void Socket::SetOnRead(ReadCB&& cb)
     }
     else {
         read_cb_ = [this](const Buffer::Ptr&, sockaddr_storage*, socklen_t) {
-            LOG_W << Stringify() << " not set read callback";
+            LOG_W << GetIdentifier() << " not set read callback";
         };
     }
 }
 
-std::string Socket::Stringify()
+std::string Socket::GetLocalIP() const
 {
-    sockaddr_storage addr;
-    bzero(&addr, sizeof(addr));
-    socklen_t len = sizeof(addr);
-    bool      ok  = false;
-
-    {
-        LOCK_GUARD(sockfd_mux_);
-        if (sockfd_) {
-            if (getsockname(sockfd_->RawFd(),
-                            reinterpret_cast<sockaddr*>(&addr), &len) == 0) {
-                ok = true;
-            }
-        }
+    LOCK_GUARD(sockfd_mux_);
+    if (!sockfd_) {
+        return "";
     }
+    return SocketUtils::GetLocalIP(sockfd_->RawFd());
+}
 
-    std::ostringstream oss;
-    oss << "socket[" << this << "]";
-    if (ok) {
-        oss << " ";
-        oss << SocketUtils::Addr2String(&addr);
+std::string Socket::GetPeerIP() const
+{
+    LOCK_GUARD(sockfd_mux_);
+    if (!sockfd_) {
+        return "";
     }
+    return SocketUtils::GetPeerIP(sockfd_->RawFd());
+}
 
-    return oss.str();
+uint16_t Socket::GetLocalPort() const
+{
+    LOCK_GUARD(sockfd_mux_);
+    if (!sockfd_) {
+        return 0;
+    }
+    return SocketUtils::GetLocalPort(sockfd_->RawFd());
+}
+
+uint16_t Socket::GetPeerPort() const
+{
+    LOCK_GUARD(sockfd_mux_);
+    if (!sockfd_) {
+        return 0;
+    }
+    return SocketUtils::GetPeerPort(sockfd_->RawFd());
+}
+
+std::string Socket::GetIdentifier() const
+{
+    static std::string class_name = "Socket:";
+    return class_name + std::to_string(reinterpret_cast<uint64_t>(this));
 }
 
 void Socket::stop_writeable_event(const SocketFd::Ptr& sockfd)
@@ -437,6 +468,9 @@ bool Socket::emit_error(const SocketException& err)
 {
     {
         LOCK_GUARD(sockfd_mux_);
+        LOG_E << GetIdentifier() << " " << GetLocalIP() << ":" << GetLocalPort()
+              << "-->" << GetPeerIP() << ":" << GetPeerPort() << ", "
+              << err.what();
         if (!sockfd_) {
             return false;
         }

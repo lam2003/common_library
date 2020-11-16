@@ -77,10 +77,6 @@ int SocketUtils::Connect(const char* host,
         return ret;
     }
 
-    std::string str_addr;
-    str_addr = Addr2String(&addr);
-    LOG_D << "connect to " << str_addr;
-
     ret = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
     if (ret == 0) {
         // 同步连接成功
@@ -92,7 +88,8 @@ int SocketUtils::Connect(const char* host,
         return fd;
     }
 
-    LOG_E << "connect to " << str_addr << " failed. " << get_uv_errmsg();
+    LOG_E << "connect to " << GetIPFromAddr(&addr) << ":"
+          << GetPortFromAddr(&addr) << " failed. " << get_uv_errmsg();
 
     ::close(fd);
 
@@ -225,7 +222,7 @@ int SocketUtils::Bind(int         fd,
     int ret = get_addr_by_if(family, local_ip_or_intf, port, addr);
     if (ret == -1) {
         free(addr);
-        LOG_W << "get address by interface failed. "
+        LOG_E << "get address by interface failed. "
               << "local_ip_or_intf=" << local_ip_or_intf;
 
         return ret;
@@ -379,30 +376,87 @@ int SocketUtils::SetSendTimeout(int fd, int seconds)
     return ret;
 }
 
-std::string SocketUtils::Addr2String(sockaddr_storage* addr)
+std::string SocketUtils::GetIPFromAddr(sockaddr_storage* addr)
 {
-    std::ostringstream oss;
-    std::string        str_ip;
-    int                port                  = 0;
-    char               buf[INET6_ADDRSTRLEN] = {0};
-
+    char buf[INET6_ADDRSTRLEN] = {0};
     if (addr->ss_family == AF_INET6) {
         sockaddr_in6* in = reinterpret_cast<sockaddr_in6*>(addr);
-        str_ip = inet_ntop(AF_INET6, &in->sin6_addr, buf, sizeof(buf));
-        port   = ntohs(in->sin6_port);
+        return inet_ntop(AF_INET6, &in->sin6_addr, buf, sizeof(buf));
     }
     else if (addr->ss_family == AF_INET) {
         sockaddr_in* in = reinterpret_cast<sockaddr_in*>(addr);
-        str_ip          = inet_ntop(AF_INET, &in->sin_addr, buf, sizeof(buf));
-        port            = ntohs(in->sin_port);
+        return inet_ntop(AF_INET, &in->sin_addr, buf, sizeof(buf));
     }
     else {
         return "";
     }
+}
 
-    oss << str_ip << ":" << port;
+uint16_t SocketUtils::GetPortFromAddr(sockaddr_storage* addr)
+{
+    if (addr->ss_family == AF_INET6) {
+        sockaddr_in6* in = reinterpret_cast<sockaddr_in6*>(addr);
+        return ntohs(in->sin6_port);
+    }
+    else if (addr->ss_family == AF_INET) {
+        sockaddr_in* in = reinterpret_cast<sockaddr_in*>(addr);
+        return ntohs(in->sin_port);
+    }
+    else {
+        return 0;
+    }
+}
 
-    return oss.str();
+std::string SocketUtils::GetLocalIP(int fd)
+{
+    sockaddr_storage addr;
+    bzero(&addr, sizeof(addr));
+    socklen_t len = sizeof(addr);
+
+    if (getsockname(fd, reinterpret_cast<sockaddr*>(&addr), &len) == 0) {
+        return GetIPFromAddr(&addr);
+    }
+
+    return "";
+}
+
+std::string SocketUtils::GetPeerIP(int fd)
+{
+    sockaddr_storage addr;
+    bzero(&addr, sizeof(addr));
+    socklen_t len = sizeof(addr);
+
+    if (getpeername(fd, reinterpret_cast<sockaddr*>(&addr), &len) == 0) {
+        return GetIPFromAddr(&addr);
+    }
+
+    return "";
+}
+
+uint16_t SocketUtils::GetLocalPort(int fd)
+{
+    sockaddr_storage addr;
+    bzero(&addr, sizeof(addr));
+    socklen_t len = sizeof(addr);
+
+    if (getsockname(fd, reinterpret_cast<sockaddr*>(&addr), &len) == 0) {
+        return GetPortFromAddr(&addr);
+    }
+
+    return 0;
+}
+
+uint16_t SocketUtils::GetPeerPort(int fd)
+{
+    sockaddr_storage addr;
+    bzero(&addr, sizeof(addr));
+    socklen_t len = sizeof(addr);
+
+    if (getpeername(fd, reinterpret_cast<sockaddr*>(&addr), &len) == 0) {
+        return GetPortFromAddr(&addr);
+    }
+
+    return 0;
 }
 
 }  // namespace common_library
