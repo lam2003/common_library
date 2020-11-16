@@ -6,6 +6,7 @@
 #include <string>
 
 struct sockaddr_storage;
+struct sockaddr;
 
 namespace common_library {
 
