@@ -11,6 +11,8 @@ namespace common_library {
 
 class SocketUtils {
   public:
+    static int CreateSocket(bool is_ipv6);
+
     static int Connect(const char* host,
                        uint16_t    port,
                        const char* local_ip   = "0.0.0.0",
@@ -49,6 +51,11 @@ class SocketUtils {
     static uint16_t GetLocalPort(int fd);
 
     static uint16_t GetPeerPort(int fd);
+
+    static int Listen(uint16_t    port,
+                      bool        is_ipv6,
+                      const char* local_ip = "0.0.0.0",
+                      int         backlog  = 1024);
 };
 }  // namespace common_library
 

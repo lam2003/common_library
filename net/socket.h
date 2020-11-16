@@ -146,6 +146,11 @@ class Socket final : public std::enable_shared_from_this<Socket>,
                 const std::string& local_ip    = "0.0.0.0",
                 uint16_t           local_port  = 0);
 
+    bool Listen(int                port,
+                bool               is_ipv6,
+                const std::string& local_ip = "0.0.0.0",
+                int                backlog  = 1024);
+
     void Close();
 
     void SetOnError(ErrorCB&& cb);

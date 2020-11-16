@@ -17,6 +17,25 @@
 
 namespace common_library {
 
+int SocketUtils::CreateSocket(bool is_ipv6)
+{
+    int fd = -1;
+    if (is_ipv6) {
+        fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+    }
+    else {
+        fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    }
+
+    if (fd == -1) {
+        LOG_E << "create " << (is_ipv6 ? "ipv6" : "ipv4") << " socket failed. "
+              << get_uv_errmsg();
+        return -1;
+    }
+
+    return fd;
+}
+
 int SocketUtils::Connect(const char* host,
                          uint16_t    port,
                          const char* local_ip_or_intf,
@@ -30,37 +49,11 @@ int SocketUtils::Connect(const char* host,
         return -1;
     }
 
-    bool is_ipv6 = false;
-    int  fd      = -1;
+    bool is_ipv6 = (addr.ss_family == AF_INET6);
 
-    switch (addr.ss_family) {
-        case AF_INET6: {
-            fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
-            if (fd < 0) {
-                LOG_E << "create ipv6 socket failed";
-                return -1;
-            }
-
-            sockaddr_in6* in = reinterpret_cast<sockaddr_in6*>(&addr);
-            in->sin6_port    = htons(port);
-            is_ipv6          = true;
-            break;
-        }
-        case AF_INET: {
-            fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-            if (fd < 0) {
-                LOG_E << "create ipv4 socket failed";
-                return -1;
-            }
-
-            sockaddr_in* in = reinterpret_cast<sockaddr_in*>(&addr);
-            in->sin_port    = htons(port);
-            break;
-        }
-        default: {
-            LOG_E << "connect failed. unknow socket family";
-            return -1;
-        }
+    int fd = CreateSocket(is_ipv6);
+    if (fd == -1) {
+        return -1;
     }
 
     SetReuseable(fd);
@@ -76,6 +69,9 @@ int SocketUtils::Connect(const char* host,
         ::close(fd);
         return ret;
     }
+
+    (is_ipv6 ? (reinterpret_cast<sockaddr_in6*>(&addr))->sin6_port :
+               (reinterpret_cast<sockaddr_in*>(&addr))->sin_port) = htons(port);
 
     ret = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
     if (ret == 0) {
@@ -96,10 +92,10 @@ int SocketUtils::Connect(const char* host,
     return -1;
 }
 
-static int get_addr_by_if(int         family,
-                          const char* adapter_name,
-                          uint16_t    port,
-                          sockaddr*   addr)
+static int get_addr_by_if(int          family,
+                          const char** adapter_name,
+                          uint16_t     port,
+                          sockaddr*    addr)
 {
     ifaddrs* list = nullptr;
     int      ret  = getifaddrs(&list);
@@ -114,7 +110,7 @@ static int get_addr_by_if(int         family,
     while (cur) {
         if (cur->ifa_addr && cur->ifa_name &&
             family == cur->ifa_addr->sa_family) {
-            if (strcmp(cur->ifa_name, adapter_name) == 0) {
+            if (strcmp(cur->ifa_name, *adapter_name) == 0) {
                 found = cur;
                 break;
             }
@@ -129,7 +125,7 @@ static int get_addr_by_if(int         family,
             (family == AF_INET) ? sizeof(in_addr) : sizeof(in6_addr);
 
         void* cmp = nullptr;
-        if (inet_pton(family, adapter_name, addrbytes) == 1) {
+        if (inet_pton(family, *adapter_name, addrbytes) == 1) {
             cur = list;
             while (cur) {
                 if (cur->ifa_addr && family == cur->ifa_addr->sa_family) {
@@ -154,10 +150,11 @@ static int get_addr_by_if(int         family,
         }
     }
 
-    if (!found) {
-        if (family == AF_INET6 && strcmp(adapter_name, "0.0.0.0") == 0) {
+    if (!found && strcmp(*adapter_name, "0.0.0.0") == 0) {
+        if (family == AF_INET6) {
             (reinterpret_cast<sockaddr_in6*>(addr))->sin6_port   = htons(port);
             (reinterpret_cast<sockaddr_in6*>(addr))->sin6_family = AF_INET6;
+            *adapter_name                                        = "::";
             if (!inet_pton(
                     AF_INET6, "::",
                     &(reinterpret_cast<sockaddr_in6*>(addr))->sin6_addr)) {
@@ -165,7 +162,7 @@ static int get_addr_by_if(int         family,
             }
             return 0;
         }
-        else if (family == AF_INET && strcmp(adapter_name, "0.0.0.0") == 0) {
+        else if (family == AF_INET) {
             (reinterpret_cast<sockaddr_in*>(addr))->sin_port   = htons(port);
             (reinterpret_cast<sockaddr_in*>(addr))->sin_family = AF_INET;
             if (!inet_pton(AF_INET, "0.0.0.0",
@@ -219,7 +216,7 @@ int SocketUtils::Bind(int         fd,
         len  = sizeof(sockaddr_in);
     }
 
-    int ret = get_addr_by_if(family, local_ip_or_intf, port, addr);
+    int ret = get_addr_by_if(family, &local_ip_or_intf, port, addr);
     if (ret == -1) {
         free(addr);
         LOG_E << "get address by interface failed. "
@@ -232,7 +229,7 @@ int SocketUtils::Bind(int         fd,
     free(addr);
 
     if (ret == -1) {
-        LOG_E << "socket bind failed. " << get_uv_errmsg()
+        LOG_E << "bind failed. " << get_uv_errmsg()
               << ", local_ip_or_intf=" << local_ip_or_intf << ", port=" << port;
     }
 
@@ -457,6 +454,35 @@ uint16_t SocketUtils::GetPeerPort(int fd)
     }
 
     return 0;
+}
+
+int SocketUtils::Listen(uint16_t    port,
+                        bool        is_ipv6,
+                        const char* local_ip,
+                        int         backlog)
+{
+    int fd = CreateSocket(is_ipv6);
+    if (fd == -1) {
+        return -1;
+    }
+
+    SetReuseable(fd);
+    SetNoBlocked(fd);
+    SetCloExec(fd);
+
+    if (Bind(fd, local_ip, port, is_ipv6) == -1) {
+        ::close(fd);
+        return -1;
+    }
+
+    if (::listen(fd, backlog) == -1) {
+        LOG_E << "listen " << local_ip << ":" << port << " failed. "
+              << get_uv_errmsg();
+        ::close(fd);
+        return -1;
+    }
+
+    return fd;
 }
 
 }  // namespace common_library
