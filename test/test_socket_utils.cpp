@@ -30,32 +30,39 @@ int main()
 
     TimeTicker();
 
-    EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
-    Socket::Ptr      socket[TEST_TIME];
+    EventPollerPool::SetPoolSize(10);
+
+    Socket::Ptr socket[TEST_TIME];
     for (int i = 0; i < TEST_TIME; i++) {
-        socket[i] = std::make_shared<Socket>(poller, false);
+        EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
+        socket[i] = std::make_shared<Socket>(poller, true);
     }
 
-    for (int i = 0; i < TEST_TIME; i++) {
-        WorkerPool::Instance().GetWorker()->Async([i, &socket, &sem]() {
-            socket[i]->Connect(
-                "linmin.xyz", 80,
-                [&sem](const SocketException& err) {
-                    if (err) {
-                        LOG_E << err.what();
-                    }
-                    else {
-                        LOG_I << err.what();
-                    }
-                    sem.Post();
-                },
-                100);
-        });
+    for (int j = 0; j < 100; j++) {
+        for (int i = 0; i < TEST_TIME; i++) {
+            WorkerPool::Instance().GetWorker()->Async([i, &socket, &sem]() {
+                socket[i]->Connect(
+                    "linmin.xyz", 80,
+                    [&sem](const SocketException& err) {
+                        if (err) {
+                            LOG_E << err.what();
+                        }
+                        else {
+                            LOG_I << err.what();
+                        }
+                        sem.Post();
+                    },
+                    100);
+            });
+        }
+
+        for (int i = 0; i < TEST_TIME; i++) {
+            sem.Wait();
+        }
     }
 
-    for (int i = 0; i < TEST_TIME; i++) {
-        sem.Wait();
-    }
+    LOG_D << "end ##########################################";
+    getchar();
 
     return 0;
 }

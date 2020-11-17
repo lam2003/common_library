@@ -32,7 +32,7 @@ int main()
 
     EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
     Socket::Ptr      socket;
-    socket = std::make_shared<Socket>(poller, false);
+    socket = std::make_shared<Socket>(poller, true);
 
     socket->Connect(
         "fe80::7471:bed2:8ad8:fadd", 135,

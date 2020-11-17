@@ -29,12 +29,6 @@ class Worker final : public TaskExecutor {
     }
 
   public:
-    int Load() override
-    {
-        return load_counter_->Load();
-    }
-
-  public:
     Task::Ptr Async(TaskIn&& task, bool may_sync = true) override
     {
         if (may_sync && thread_group_.IsSelfThreadIn()) {
@@ -61,9 +55,6 @@ class Worker final : public TaskExecutor {
 
     void Start()
     {
-        // 先初始化counters
-        load_counter_ =
-            std::make_shared<ThreadLoadCounterImpl>(32, 2 * 1000 * 1000);
         thread_group_.CreateThread(std::bind(&Worker::run, this));
     }
 
@@ -84,11 +75,9 @@ class Worker final : public TaskExecutor {
         set_thread_priority(priority_);
         Task::Ptr ptask = nullptr;
         while (true) {
-            load_counter_->Sleep();
             if (!queue_.GetTask(ptask)) {
                 break;
             }
-            load_counter_->WakeUp();
             try {
                 (*ptask)();
                 ptask = nullptr;
@@ -100,10 +89,9 @@ class Worker final : public TaskExecutor {
     }
 
   private:
-    ThreadPriority             priority_;
-    ThreadGroup                thread_group_;
-    ThreadLoadCounterImpl::Ptr load_counter_;
-    TaskQueue<Task::Ptr>       queue_;
+    ThreadPriority       priority_;
+    ThreadGroup          thread_group_;
+    TaskQueue<Task::Ptr> queue_;
 };
 
 class WorkerPool final : public std::enable_shared_from_this<WorkerPool>,

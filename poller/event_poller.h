@@ -36,14 +36,12 @@ class EventPoller final : public TaskExecutor,
 
     static EventPoller::Ptr
     CreatePoller(ThreadPriority priority     = TPRIORITY_HIGHEST,
-                      bool           enable_mutex = true);
+                 bool           enable_mutex = true);
 
   public:
     Task::Ptr Async(TaskIn&& task, bool may_sync = true) override;
 
     Task::Ptr AsyncFirst(TaskIn&& task, bool may_sync = true) override;
-
-    int Load() override;
 
   public:
     int AddEvent(int fd, int event, PollEventCB&& cb);
@@ -107,7 +105,6 @@ class EventPoller final : public TaskExecutor,
     bool                                                  exit_flag_;
     Semaphore                                             run_started_sem_;
     std::multimap<uint64_t, DelayTask::Ptr>               delay_tasks_;
-    ThreadLoadCounterImpl                                 counter_;
     std::thread* loop_thread_ = nullptr;
     int          epoll_fd_    = -1;
 };

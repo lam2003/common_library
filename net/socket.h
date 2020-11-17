@@ -77,13 +77,20 @@ class SocketFd final {
 
     ~SocketFd()
     {
-        poller_->DelEvent(fd_);
+        int  fd        = fd_;
+        bool connected = connected_;
 
-        if (connected_) {
-            // 建立连接成功后才调用shutdown
-            ::shutdown(fd_, SHUT_RDWR);
-        }
-        ::close(fd_);
+        // 必须在epoll_ctl之后close fd
+        poller_->DelEvent(fd_, [fd, connected](bool success) {
+            if (!success) {
+                LOG_E << "delete event from poller failed. fd=" << fd;
+            }
+            if (connected) {
+                // 建立连接成功后才调用shutdown
+                ::shutdown(fd, SHUT_RDWR);
+            }
+            ::close(fd);
+        });
     }
 
     int RawFd() const

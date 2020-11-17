@@ -26,8 +26,7 @@ static std::map<std::thread::id, std::weak_ptr<EventPoller>> s_all_threads_map;
 static std::mutex                                            s_all_threads_mux;
 
 EventPoller::EventPoller(ThreadPriority priority, bool enable_mutex)
-    : task_mux_(enable_mutex), running_mux_(enable_mutex),
-      counter_(32, 2 * 1000 * 1000, enable_mutex)
+    : task_mux_(enable_mutex), running_mux_(enable_mutex)
 {
     priority_ = priority;
     // 将写设置为非阻塞，防止poller线程退出后，因写满缓存被永久阻塞
@@ -65,7 +64,7 @@ EventPoller::~EventPoller()
 }
 
 EventPoller::Ptr EventPoller::CreatePoller(ThreadPriority priority,
-                                                bool           enable_mutex)
+                                           bool           enable_mutex)
 {
     EventPoller::Ptr ptr(new EventPoller(priority, enable_mutex));
     return ptr;
@@ -144,11 +143,6 @@ int EventPoller::ModifyEvent(int fd, int event)
     return epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, fd, &ev);
 }
 
-int EventPoller::Load()
-{
-    return counter_.Load();
-}
-
 bool EventPoller::IsCurrentThread()
 {
     return std::this_thread::get_id() == loop_tid_;
@@ -185,10 +179,8 @@ void EventPoller::RunLoop(bool blocked, bool register_current_poller)
         struct epoll_event events[EPOLL_SIZE];
         while (!exit_flag_) {
             delay_ms = get_min_delay_ms();
-            counter_.Sleep();
             int n = epoll_wait(epoll_fd_, events, EPOLL_SIZE,
                                delay_ms ? delay_ms : -1);
-            counter_.WakeUp();
             if (n <= 0) {
                 // 超时或被中断
                 continue;

@@ -23,25 +23,7 @@ int main()
         std::make_shared<AsyncLogWriter>(Logger::Instance()));
     Ticker ticker;
     while (!exit_flag) {
-        if (ticker.ElapsedTimeMS() > 1000) {
-            auto            vec = EventPollerPool::Instance().GetExcutorsLoad();
-            __StringPrinter printer;
-            for (auto load : vec) {
-                printer << load << "-";
-            }
-            LOG_D << "cpu负载:" << printer;
-
-            EventPollerPool::Instance().GetExecutorsDelay(
-                [](const vector<int>& vec) {
-                    __StringPrinter printer;
-                    for (auto delay : vec) {
-                        printer << delay << "-";
-                    }
-                    LOG_D << "cpu任务执行延时:" << printer;
-                });
-            ticker.Reset();
-        }
-
+   
         EventPollerPool::Instance().GetExecutor()->Async([]() {
             auto usec = rand() % 4000;
             // DebugL << usec;
