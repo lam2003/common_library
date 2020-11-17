@@ -3,7 +3,6 @@
 
 #include <utils/mutex_wrapper.h>
 
-#include <atomic>
 #include <unordered_map>
 
 #include <sys/socket.h>
