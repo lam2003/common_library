@@ -2,6 +2,7 @@
 #define COMMON_LIBRARY_LOAD_COUNTER_H
 
 #include <utils/list.h>
+#include <utils/mutex_wrapper.h>
 #include <utils/utils.h>
 
 #include <mutex>
@@ -21,7 +22,10 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
   public:
     typedef std::shared_ptr<ThreadLoadCounterImpl> Ptr;
 
-    ThreadLoadCounterImpl(uint64_t max_size, uint32_t max_duration_us)
+    ThreadLoadCounterImpl(uint64_t max_size,
+                          uint32_t max_duration_us,
+                          bool     enable_mutex = true)
+        : mux_(enable_mutex)
     {
         last_sleep_time_us_ = last_wake_time_us_ = get_current_microseconds();
         max_size_                                = max_size;
@@ -32,7 +36,7 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
   public:
     int Load() override
     {
-        std::lock_guard<std::mutex> lock(mux_);
+        LOCK_GUARD(mux_);
 
         uint64_t run_time_us   = 0;
         uint64_t sleep_time_us = 0;
@@ -82,7 +86,7 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
   public:
     void Sleep()
     {
-        std::lock_guard<std::mutex> lock(mux_);
+        LOCK_GUARD(mux_);
 
         sleep_ = true;
 
@@ -99,7 +103,7 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
 
     void WakeUp()
     {
-        std::lock_guard<std::mutex> lock(mux_);
+        LOCK_GUARD(mux_);
 
         sleep_ = false;
 
@@ -126,13 +130,13 @@ class ThreadLoadCounterImpl final : public ThreadLoadCounter {
     };
 
   private:
-    uint64_t         last_sleep_time_us_;
-    uint64_t         last_wake_time_us_;
-    uint64_t         max_size_;
-    uint64_t         max_duration_us_;
-    bool             sleep_ = false;
-    List<TimeRecord> time_lists_;
-    std::mutex       mux_;
+    uint64_t                 last_sleep_time_us_;
+    uint64_t                 last_wake_time_us_;
+    uint64_t                 max_size_;
+    uint64_t                 max_duration_us_;
+    bool                     sleep_ = false;
+    List<TimeRecord>         time_lists_;
+    MutexWrapper<std::mutex> mux_;
 };
 }  // namespace common_library
 

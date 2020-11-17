@@ -133,9 +133,10 @@ int Socket::Connect(const std::string& host,
         async_connect_cb;
 
     auto poller = poller_;
-    WorkerPool::Instance().GetWorker()->Async([host, port, local_ip_or_intf,
-                                               local_port,
-                                               weak_async_connect_cb, poller] {
+
+    // 支持单线程，不使用WorkerPool
+    poller_->Async([host, port, local_ip_or_intf, local_port,
+                    weak_async_connect_cb, poller] {
         int fd = SocketUtils::Connect(
             host.c_str(), port, local_ip_or_intf.c_str(), local_port, true);
         poller->Async([weak_async_connect_cb, fd]() {

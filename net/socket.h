@@ -192,11 +192,11 @@ class Socket final : public std::enable_shared_from_this<Socket>,
 
     BufferRaw::Ptr read_buf_ = nullptr;
 
-    Ticker                           send_flush_ticker_;
-    mutable MutexWrapper<std::mutex> send_buf_sending_mux_;
-    List<BufferList::Ptr>            send_buf_sending_;
-    mutable MutexWrapper<std::mutex> send_buf_waiting_mux_;
-    List<Buffer::Ptr>                send_buf_waiting_;
+    Ticker                   send_flush_ticker_;
+    MutexWrapper<std::mutex> send_buf_sending_mux_;
+    List<BufferList::Ptr>    send_buf_sending_;
+    MutexWrapper<std::mutex> send_buf_waiting_mux_;
+    List<Buffer::Ptr>        send_buf_waiting_;
 
     std::atomic<bool> enable_recv_{true};
 

@@ -25,8 +25,9 @@ namespace common_library {
 static std::map<std::thread::id, std::weak_ptr<EventPoller>> s_all_threads_map;
 static std::mutex                                            s_all_threads_mux;
 
-EventPoller::EventPoller(ThreadPriority priority)
-    : counter_(32, 2 * 1000 * 1000)
+EventPoller::EventPoller(ThreadPriority priority, bool enable_mutex)
+    : task_mux_(enable_mutex), running_mux_(enable_mutex),
+      counter_(32, 2 * 1000 * 1000, enable_mutex)
 {
     priority_ = priority;
     // 将写设置为非阻塞，防止poller线程退出后，因写满缓存被永久阻塞
@@ -61,7 +62,13 @@ EventPoller::~EventPoller()
     // 退出前清空管道
     loop_tid_ = std::this_thread::get_id();
     on_pipe_event();
-    LOG_I << this;
+}
+
+EventPoller::Ptr EventPoller::CreatePoller(ThreadPriority priority,
+                                                bool           enable_mutex)
+{
+    EventPoller::Ptr ptr(new EventPoller(priority, enable_mutex));
+    return ptr;
 }
 
 Task::Ptr EventPoller::Async(TaskIn&& task, bool may_sync)
@@ -162,7 +169,7 @@ void EventPoller::RunLoop(bool blocked, bool register_current_poller)
     if (blocked) {
         set_thread_name("poller");
         set_thread_priority(priority_);
-        std::lock_guard<std::mutex> lock(running_mux_);
+        LOCK_GUARD(running_mux_);
         loop_tid_ = std::this_thread::get_id();
 
         if (register_current_poller) {
@@ -235,7 +242,7 @@ void EventPoller::Shutdown()
 
 void EventPoller::Wait()
 {
-    std::lock_guard<std::mutex> lock(running_mux_);
+    LOCK_GUARD(running_mux_);
 }
 
 EventPoller::Ptr EventPoller::GetCurrentPoller()
@@ -265,7 +272,7 @@ inline void EventPoller::on_pipe_event()
     List<Task::Ptr> swap_list;
 
     {
-        std::lock_guard<std::mutex> lock(task_mux_);
+        LOCK_GUARD(task_mux_);
         swap_list.swap(task_list_);
     }
 
@@ -345,7 +352,7 @@ Task::Ptr EventPoller::async(TaskIn&& task, bool may_sync, bool first)
 
     Task::Ptr ptask = std::make_shared<Task>(std::move(task));
     {
-        std::lock_guard<std::mutex> lock(task_mux_);
+        LOCK_GUARD(task_mux_);
         if (first) {
             task_list_.emplace_front(ptask);
         }
@@ -377,6 +384,11 @@ EventPollerPool::EventPollerPool()
         size);
 
     LOG_I << "event poller pool size: " << size;
+}
+
+void EventPollerPool::SetPoolSize(int size)
+{
+    s_pool_size_ = size;
 }
 
 EventPoller::Ptr EventPollerPool::GetFirstPoller()

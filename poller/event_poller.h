@@ -5,6 +5,7 @@
 #include <thread/task.h>
 #include <thread/task_executor.h>
 #include <utils/list.h>
+#include <utils/mutex_wrapper.h>
 #include <utils/utils.h>
 
 #include <mutex>
@@ -32,6 +33,10 @@ class EventPoller final : public TaskExecutor,
     friend class EventPollerPool;
     typedef std::shared_ptr<EventPoller> Ptr;
     ~EventPoller();
+
+    static EventPoller::Ptr
+    CreatePoller(ThreadPriority priority     = TPRIORITY_HIGHEST,
+                      bool           enable_mutex = true);
 
   public:
     Task::Ptr Async(TaskIn&& task, bool may_sync = true) override;
@@ -73,7 +78,8 @@ class EventPoller final : public TaskExecutor,
     static EventPoller::Ptr GetCurrentPoller();
 
   private:
-    EventPoller(ThreadPriority priority = TPRIORITY_HIGHEST);
+    EventPoller(ThreadPriority priority     = TPRIORITY_HIGHEST,
+                bool           enable_mutex = true);
 
   private:
     class ExitException : public std::exception {
@@ -96,8 +102,8 @@ class EventPoller final : public TaskExecutor,
     PipeWrapper                                           pipe_;
     std::unordered_map<int, std::shared_ptr<PollEventCB>> event_map_;
     List<Task::Ptr>                                       task_list_;
-    std::mutex                                            task_mux_;
-    std::mutex                                            running_mux_;
+    MutexWrapper<std::mutex>                              task_mux_;
+    MutexWrapper<std::mutex>                              running_mux_;
     bool                                                  exit_flag_;
     Semaphore                                             run_started_sem_;
     std::multimap<uint64_t, DelayTask::Ptr>               delay_tasks_;
