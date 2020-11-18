@@ -14,7 +14,7 @@
 using namespace std;
 using namespace common_library;
 
-#define TEST_TIME 10
+#define TEST_TIME 100
 /**
  * socket工具库测试
  * @return
@@ -30,19 +30,19 @@ int main()
 
     TimeTicker();
 
-    EventPollerPool::SetPoolSize(10);
+    EventPollerPool::SetPoolSize(2);
 
     Socket::Ptr socket[TEST_TIME];
     for (int i = 0; i < TEST_TIME; i++) {
         EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
-        socket[i] = std::make_shared<Socket>(poller, true);
+        socket[i]               = std::make_shared<Socket>(poller, true);
     }
 
-    for (int j = 0; j < 100; j++) {
+    for (int j = 0; j < 10; j++) {
         for (int i = 0; i < TEST_TIME; i++) {
             WorkerPool::Instance().GetWorker()->Async([i, &socket, &sem]() {
                 socket[i]->Connect(
-                    "linmin.xyz", 80,
+                    "google.com", 80,
                     [&sem](const SocketException& err) {
                         if (err) {
                             LOG_E << err.what();
@@ -62,7 +62,7 @@ int main()
     }
 
     LOG_D << "end ##########################################";
-    getchar();
+    sleep(1);
 
     return 0;
 }

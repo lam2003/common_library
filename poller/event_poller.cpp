@@ -179,7 +179,7 @@ void EventPoller::RunLoop(bool blocked, bool register_current_poller)
         struct epoll_event events[EPOLL_SIZE];
         while (!exit_flag_) {
             delay_ms = get_min_delay_ms();
-            int n = epoll_wait(epoll_fd_, events, EPOLL_SIZE,
+            int n    = epoll_wait(epoll_fd_, events, EPOLL_SIZE,
                                delay_ms ? delay_ms : -1);
             if (n <= 0) {
                 // 超时或被中断
