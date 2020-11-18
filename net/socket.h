@@ -108,6 +108,11 @@ class SocketFd final {
         connected_ = true;
     }
 
+    bool IsConnected()
+    {
+        return connected_;
+    }
+
   private:
     int              fd_;
     SockType         type_;

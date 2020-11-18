@@ -16,9 +16,17 @@
     }
 
 #define SOCKET_LOG(logger, ptr, err)                                           \
-    logger << ptr->GetIdentifier() << " " << ptr->GetLocalIP() << ":"          \
-           << ptr->GetLocalPort() << "-->" << ptr->GetPeerIP() << ":"          \
-           << ptr->GetPeerPort() << ", " << err.what();
+    do {                                                                       \
+        LOCK_GUARD(ptr->sockfd_mux_);                                          \
+        if (ptr->sockfd_->IsConnected()) {                                     \
+            logger << ptr->GetIdentifier() << " " << ptr->GetLocalIP() << ":"  \
+                   << ptr->GetLocalPort() << "-->" << ptr->GetPeerIP() << ":"  \
+                   << ptr->GetPeerPort() << ", " << err.what();                \
+        }                                                                      \
+        else {                                                                 \
+            logger << ptr->GetIdentifier() << " " << err.what();               \
+        }                                                                      \
+    } while (0)
 
 namespace common_library {
 
@@ -63,9 +71,9 @@ int Socket::Connect(const std::string& host,
 
         if (err) {
             // 错误发生，将fd从epoll中移除
+            SOCKET_LOG(LOG_E, strong_self, err);
             LOCK_GUARD(strong_self->sockfd_mux_);
             strong_self->sockfd_ = nullptr;
-            SOCKET_LOG(LOG_E, strong_self, err)
         }
         else {
             SOCKET_LOG(LOG_I, strong_self, err);
@@ -458,8 +466,8 @@ bool Socket::on_error(const SocketFd::Ptr& sockfd)
 bool Socket::emit_error(const SocketException& err)
 {
     {
-        LOCK_GUARD(sockfd_mux_);
         SOCKET_LOG(LOG_E, this, err);
+        LOCK_GUARD(sockfd_mux_);
         if (!sockfd_) {
             return false;
         }
