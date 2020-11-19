@@ -28,20 +28,28 @@ int main()
     Logger::Instance().SetWriter(
         std::make_shared<AsyncLogWriter>(Logger::Instance()));
 
-    TimeTicker();
+
 
     EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
     Socket::Ptr      socket;
     socket = std::make_shared<Socket>(poller, false);
 
-    socket->Connect("localhost", 11111,
+    socket->Connect("linmin.xyz", 11111,
                     [](const SocketException& err) { LOG_W << err.what(); });
-    char buf[128*1024] = {8};
-    while (true) {
-  
+    char buf[128 * 1024] = {8};
+   
+    socket->SetOnFlushed([&sem]() {
+        LOG_I << "write done########################### ";
+        sem.Post();
+        return true;
+    });
+
+    TimeTicker();
+    int i = 1024;
+    while (i--) {
         usleep(10);
         socket->Send(buf, sizeof(buf));
     }
-    sem.Wait();
+    getchar();
     return 0;
 }
