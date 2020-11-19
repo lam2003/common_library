@@ -64,10 +64,17 @@ class SocketException final : public std::exception {
     std::string msg_;
 };
 
-class SocketFd final {
+class SocketFD final {
   public:
-    typedef std::shared_ptr<SocketFd> Ptr;
-    SocketFd(int fd, SockType type, const EventPoller::Ptr& poller)
+    typedef std::shared_ptr<SocketFD> Ptr;
+
+    static SocketFD::Ptr
+    Create(int fd, SockType type, const EventPoller::Ptr& poller)
+    {
+        return std::make_shared<SocketFD>(fd, type, poller);
+    }
+
+    SocketFD(int fd, SockType type, const EventPoller::Ptr& poller)
     {
         fd_        = fd;
         type_      = type;
@@ -75,7 +82,7 @@ class SocketFd final {
         connected_ = false;
     }
 
-    ~SocketFd()
+    ~SocketFD()
     {
         int  fd        = fd_;
         bool connected = connected_;
@@ -93,7 +100,7 @@ class SocketFd final {
         });
     }
 
-    int RawFd() const
+    int RawFD() const
     {
         return fd_;
     }
@@ -130,6 +137,7 @@ class SocketInfo {
     virtual std::string GetPeerIP() const    = 0;
     virtual uint16_t    GetLocalPort() const = 0;
     virtual uint16_t    GetPeerPort() const  = 0;
+    virtual bool        IsConnected() const  = 0;
     virtual std::string GetIdentifier() const
     {
         return "";
@@ -145,7 +153,10 @@ class Socket final : public std::enable_shared_from_this<Socket>,
     typedef std::function<bool()>                       FlushedCB;
     typedef std::function<
         void(const Buffer::Ptr&, sockaddr_storage*, socklen_t)>
-        ReadCB;
+                                                     ReadCB;
+    typedef std::function<void(Socket::Ptr& socket)> AcceptCB;
+
+    static Socket::Ptr Create(const EventPoller::Ptr& poller, bool enable_mute);
 
     Socket(const EventPoller::Ptr& poller, bool enable_mutex);
 
@@ -158,16 +169,23 @@ class Socket final : public std::enable_shared_from_this<Socket>,
                 const std::string& local_ip    = "0.0.0.0",
                 uint16_t           local_port  = 0);
 
-    bool Listen(int                port,
+    bool Listen(uint16_t           port,
                 bool               is_ipv6,
                 const std::string& local_ip = "0.0.0.0",
                 int                backlog  = 1024);
 
     void Close();
 
-    void SetOnError(ErrorCB&& cb);
-    void SetOnFlushed(FlushedCB&& cb);
-    void SetOnRead(ReadCB&& cb);
+    int Send(const char*      buf,
+             int              size,
+             struct sockaddr* addr = nullptr,
+             socklen_t        len  = 0);
+
+    void          SetOnError(ErrorCB&& cb);
+    void          SetOnFlushed(FlushedCB&& cb);
+    void          SetOnRead(ReadCB&& cb);
+    void          SetOnAccept(AcceptCB&& cb);
+    SocketFD::Ptr SetPeerSocket(int fd);
 
   public:
     // implement socket info interface
@@ -175,23 +193,29 @@ class Socket final : public std::enable_shared_from_this<Socket>,
     std::string GetPeerIP() const override;
     uint16_t    GetLocalPort() const override;
     uint16_t    GetPeerPort() const override;
+    bool        IsConnected() const override;
     std::string GetIdentifier() const override;
 
   private:
-    bool attach_event(const SocketFd::Ptr& sockfd, bool is_udp = false);
-    void stop_writeable_event(const SocketFd::Ptr& sockfd);
-    void start_writeable_event(const SocketFd::Ptr& sockfd);
-    bool flush_data(const SocketFd::Ptr& sockfd, bool is_poller_thread);
+    bool attach_event(const SocketFD::Ptr& sockfd, bool is_udp = false);
+    void stop_writeable_event(const SocketFD::Ptr& sockfd);
+    void start_writeable_event(const SocketFD::Ptr& sockfd);
+    bool flush_data(const SocketFD::Ptr& sockfd, bool is_poller_thread);
 
-    void on_connected(const SocketFd::Ptr& sockfd, const ErrorCB& cb);
-    int  on_read(const SocketFd::Ptr& sockfd, bool is_udp);
-    void on_writeable(const SocketFd::Ptr& sockfd);
-    bool on_error(const SocketFd::Ptr& sockfd);
+    void on_connected(const SocketFD::Ptr& sockfd, const ErrorCB& cb);
+    int  on_read(const SocketFD::Ptr& sockfd, bool is_udp);
+    void on_writeable(const SocketFD::Ptr& sockfd);
+    bool on_error(const SocketFD::Ptr& sockfd);
     bool emit_error(const SocketException& err);
     void on_flushed();
+    int  on_accept(const SocketFD::Ptr& sockfd, int event);
+    bool listen(const SocketFD::Ptr& sockfd);
+    int  send(const Buffer::Ptr& buf, sockaddr* addr, socklen_t len);
 
-    static SocketException get_socket_error(const SocketFd::Ptr& sockfd,
+    static SocketException get_socket_error(const SocketFD::Ptr& sockfd,
                                             bool try_errno = true);
+    static inline LogContextCapturer&
+    socket_log(const LogContextCapturer& logger, Socket* ptr);
 
   private:
     EventPoller::Ptr poller_;
@@ -200,22 +224,22 @@ class Socket final : public std::enable_shared_from_this<Socket>,
     std::shared_ptr<std::function<void(int)>> async_connect_cb_;
 
     mutable MutexWrapper<std::recursive_mutex> sockfd_mux_;
-    SocketFd::Ptr                              sockfd_;
+    SocketFD::Ptr                              sockfd_;
 
     BufferRaw::Ptr read_buf_ = nullptr;
 
-    Ticker                   send_flush_ticker_;
-    MutexWrapper<std::mutex> send_buf_sending_mux_;
-    List<BufferList::Ptr>    send_buf_sending_;
-    MutexWrapper<std::mutex> send_buf_waiting_mux_;
-    List<Buffer::Ptr>        send_buf_waiting_;
+    Ticker                send_flush_ticker_;
+    List<BufferList::Ptr> send_buf_sending_;
+    List<Buffer::Ptr>     send_buf_waiting_;
 
+    bool              sending_ = true;
     std::atomic<bool> enable_recv_{true};
 
     mutable MutexWrapper<std::mutex> cb_mux_;
     ErrorCB                          error_cb_;
     FlushedCB                        flushed_cb_;
     ReadCB                           read_cb_;
+    AcceptCB                         accept_cb_;
 
     int socket_flags_;
 };

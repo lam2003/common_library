@@ -20,8 +20,10 @@ using namespace common_library;
  * @return
  */
 
+std::vector<Socket::Ptr> vec;
 int main()
 {
+    
     Semaphore sem;
     //设置日志
     Logger::Instance().AddChannel(std::make_shared<ConsoleChannel>());
@@ -31,17 +33,15 @@ int main()
     TimeTicker();
 
     EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
-    Socket::Ptr      socket;
-    socket = std::make_shared<Socket>(poller, false);
+    Socket::Ptr      socket = std::make_shared<Socket>(poller, true);
 
-    socket->Connect("localhost", 11111,
-                    [](const SocketException& err) { LOG_W << err.what(); });
-    char buf[128*1024] = {8};
-    while (true) {
-  
-        usleep(10);
-        socket->Send(buf, sizeof(buf));
-    }
+    socket->SetOnAccept([](Socket::Ptr& socket) {
+        LOG_W << socket->GetPeerIP() << ":" << socket->GetPeerPort()
+              << " connected";
+        vec.emplace_back(socket);
+    });
+    
+    socket->Listen(11111, false);
     sem.Wait();
     return 0;
 }

@@ -35,7 +35,7 @@ class EventPoller final : public TaskExecutor,
     ~EventPoller();
 
     static EventPoller::Ptr
-    CreatePoller(ThreadPriority priority     = TPRIORITY_HIGHEST,
+    Create(ThreadPriority priority     = TPRIORITY_HIGHEST,
                  bool           enable_mutex = true);
 
   public:

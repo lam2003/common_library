@@ -34,7 +34,7 @@ uint32_t BufferSock::Size() const
     return buffer_->Size();
 }
 
-BufferList::BufferList(List<Buffer::Ptr>& list)
+BufferList::BufferList(List<Buffer::Ptr>& list) : iovec_(list.size())
 {
     pkt_list_.swap(list);
     std::vector<struct iovec>::iterator it = iovec_.begin();
@@ -75,7 +75,7 @@ void BufferList::reoffset(int n)
     int offset   = 0;
     int last_off = iovec_off_;
 
-    for (int i = last_off; i != static_cast<int>(iovec_.size()); i++) {
+    for (int i = last_off; i < static_cast<int>(iovec_.size()); i++) {
         struct iovec& ref = iovec_[i];
         offset += ref.iov_len;
         if (offset < n) {
@@ -92,7 +92,7 @@ void BufferList::reoffset(int n)
         break;
     }
 
-    for (int i = 0; i < iovec_off_; i++) {
+    for (int i = last_off; i < iovec_off_; i++) {
         pkt_list_.pop_front();
     }
 }

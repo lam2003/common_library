@@ -71,7 +71,7 @@ if(BUILD_LMCOMM_TEST)
     target_compile_features(test_socket_utils PUBLIC cxx_std_11)
     target_link_libraries(test_socket_utils lmcomm pthread)
 
-     add_executable(test_ipv6
+    add_executable(test_ipv6
         ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ipv6.cpp
     )
     add_dependencies(test_ipv6 
@@ -80,4 +80,14 @@ if(BUILD_LMCOMM_TEST)
     target_include_directories(test_ipv6 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(test_ipv6 PUBLIC cxx_std_11)
     target_link_libraries(test_ipv6 lmcomm pthread)
+
+    add_executable(test_listen
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_listen.cpp
+    )
+    add_dependencies(test_listen 
+        lmcomm
+    )
+    target_include_directories(test_listen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(test_listen PUBLIC cxx_std_11)
+    target_link_libraries(test_listen lmcomm pthread)
 endif()

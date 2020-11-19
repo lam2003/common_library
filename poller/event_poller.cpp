@@ -63,7 +63,7 @@ EventPoller::~EventPoller()
     on_pipe_event();
 }
 
-EventPoller::Ptr EventPoller::CreatePoller(ThreadPriority priority,
+EventPoller::Ptr EventPoller::Create(ThreadPriority priority,
                                            bool           enable_mutex)
 {
     EventPoller::Ptr ptr(new EventPoller(priority, enable_mutex));

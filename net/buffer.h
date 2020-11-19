@@ -42,6 +42,12 @@ class BufferRaw final : public Buffer {
             SetCapacity(capacity);
         }
     }
+    ~BufferRaw()
+    {
+        if (data_) {
+            delete[] data_;
+        }
+    }
 
   public:
     char* Data() const override
