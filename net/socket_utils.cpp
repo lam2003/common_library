@@ -271,6 +271,14 @@ int SocketUtils::SetReuseable(int fd, bool enable)
         return ret;
     }
 
+    opt = enable;
+    ret = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+    if (ret == -1) {
+        LOG_E << "set SO_REUSEPORT failed. " << get_uv_errmsg()
+              << ", fd=" << fd;
+        return ret;
+    }
+
     return ret;
 }
 

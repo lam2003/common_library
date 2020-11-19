@@ -42,7 +42,7 @@ int main()
         for (int i = 0; i < TEST_TIME; i++) {
             WorkerPool::Instance().GetWorker()->Async([i, &socket, &sem]() {
                 socket[i]->Connect(
-                    "google.com", 80,
+                    "linmin.xyz", 81,
                     [&sem](const SocketException& err) {
                         if (err) {
                             LOG_E << err.what();
