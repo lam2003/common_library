@@ -7,6 +7,11 @@
 
 #include <iostream>
 
+#ifndef gettid
+#    include <sys/syscall.h>
+#    define gettid() syscall(SYS_gettid)
+#endif
+
 namespace common_library {
 
 static const char* s_log_const_table[][3] = {
