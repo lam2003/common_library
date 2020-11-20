@@ -22,13 +22,8 @@
 
 namespace common_library {
 
-static std::map<std::thread::id, std::weak_ptr<EventPoller>> s_all_threads_map;
-static std::mutex                                            s_all_threads_mux;
-
-EventPoller::EventPoller(ThreadPriority priority, bool enable_mutex)
-    : task_mux_(enable_mutex), running_mux_(enable_mutex)
+EventPoller::EventPoller()
 {
-    priority_ = priority;
     // 将写设置为非阻塞，防止poller线程退出后，因写满缓存被永久阻塞
     SocketUtils::SetNoBlocked(pipe_.WriteFD());
     SocketUtils::SetNoBlocked(pipe_.ReadFD());
@@ -38,8 +33,6 @@ EventPoller::EventPoller(ThreadPriority priority, bool enable_mutex)
         std::runtime_error(StringPrinter << "epoll create failed. "
                                          << get_uv_errmsg());
     }
-
-    loop_tid_ = std::this_thread::get_id();
 
     if (AddEvent(pipe_.ReadFD(), PE_READ,
                  [this](int event) { on_pipe_event(); }) == -1) {
@@ -51,7 +44,6 @@ EventPoller::EventPoller(ThreadPriority priority, bool enable_mutex)
 EventPoller::~EventPoller()
 {
     Shutdown();
-    Wait();
 
     if (epoll_fd_ != -1) {
         ::close(epoll_fd_);
@@ -59,25 +51,23 @@ EventPoller::~EventPoller()
     }
 
     // 退出前清空管道
-    loop_tid_ = std::this_thread::get_id();
     on_pipe_event();
 }
 
-EventPoller::Ptr EventPoller::Create(ThreadPriority priority,
-                                           bool           enable_mutex)
+EventPoller::Ptr EventPoller::Create()
 {
-    EventPoller::Ptr ptr(new EventPoller(priority, enable_mutex));
+    EventPoller::Ptr ptr(new EventPoller());
     return ptr;
 }
 
-Task::Ptr EventPoller::Async(TaskIn&& task, bool may_sync)
+Task::Ptr EventPoller::Async(TaskIn&& task)
 {
-    return async(std::move(task), may_sync, false);
+    return async(std::move(task), false);
 }
 
-Task::Ptr EventPoller::AsyncFirst(TaskIn&& task, bool may_sync)
+Task::Ptr EventPoller::AsyncFirst(TaskIn&& task)
 {
-    return async(std::move(task), may_sync, true);
+    return async(std::move(task), true);
 }
 
 int EventPoller::AddEvent(int fd, int event, PollEventCB&& cb)
@@ -87,24 +77,16 @@ int EventPoller::AddEvent(int fd, int event, PollEventCB&& cb)
         return -1;
     }
 
-    if (IsCurrentThread()) {
-        struct epoll_event ev = {0};
-        ev.events             = TO_EPOLL(event);
-        ev.data.fd            = fd;
+    struct epoll_event ev = {0};
+    ev.events             = TO_EPOLL(event);
+    ev.data.fd            = fd;
 
-        int ret = epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, fd, &ev);
-        if (ret == 0) {
-            event_map_.emplace(fd, std::make_shared<PollEventCB>(cb));
-        }
-
-        return ret;
+    int ret = epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, fd, &ev);
+    if (ret == 0) {
+        event_map_.emplace(fd, std::make_shared<PollEventCB>(cb));
     }
 
-    Async([this, fd, event, cb]() {
-        AddEvent(fd, event, std::move(const_cast<PollEventCB&>(cb)));
-    });
-
-    return 0;
+    return ret;
 }
 
 int EventPoller::DelEvent(int fd, PollDelCB&& cb)
@@ -115,21 +97,13 @@ int EventPoller::DelEvent(int fd, PollDelCB&& cb)
         cb = [](bool success) {};
     }
 
-    if (IsCurrentThread()) {
-        bool success = true;
-        if (event_map_.count(fd)) {
-            success = epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) == 0 &&
-                      event_map_.erase(fd);
-            cb(success);
-        }
-        return success ? 0 : -1;
+    bool success = true;
+    if (event_map_.count(fd)) {
+        success = epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr) == 0 &&
+                  event_map_.erase(fd);
+        cb(success);
     }
-
-    Async([this, fd, cb] {
-        DelEvent(fd, std::move(const_cast<PollDelCB&>(cb)));
-    });
-
-    return 0;
+    return success ? 0 : -1;
 }
 
 int EventPoller::ModifyEvent(int fd, int event)
@@ -143,11 +117,6 @@ int EventPoller::ModifyEvent(int fd, int event)
     return epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, fd, &ev);
 }
 
-bool EventPoller::IsCurrentThread()
-{
-    return std::this_thread::get_id() == loop_tid_;
-}
-
 DelayTask::Ptr EventPoller::DoDelayTask(uint64_t                    delay_ms,
                                         std::function<uint64_t()>&& task)
 {
@@ -158,94 +127,50 @@ DelayTask::Ptr EventPoller::DoDelayTask(uint64_t                    delay_ms,
     return ret;
 }
 
-void EventPoller::RunLoop(bool blocked, bool register_current_poller)
+void EventPoller::RunLoop()
 {
-    if (blocked) {
-        set_thread_name("poller");
-        set_thread_priority(priority_);
-        LOCK_GUARD(running_mux_);
-        loop_tid_ = std::this_thread::get_id();
+    set_thread_name("poller");
+    set_thread_priority(TPRIORITY_HIGHEST);
 
-        if (register_current_poller) {
-            std::lock_guard<std::mutex> lock(s_all_threads_mux);
-            s_all_threads_map[loop_tid_] = shared_from_this();
+    exit_flag_ = false;
+
+    uint64_t           delay_ms;
+    struct epoll_event events[EPOLL_SIZE];
+    while (!exit_flag_) {
+        delay_ms = get_min_delay_ms();
+        int n =
+            epoll_wait(epoll_fd_, events, EPOLL_SIZE, delay_ms ? delay_ms : -1);
+        if (n <= 0) {
+            // 超时或被中断
+            continue;
         }
-        // 给等待线程发信号
-        run_started_sem_.Post();
 
-        exit_flag_ = false;
-
-        uint64_t           delay_ms;
-        struct epoll_event events[EPOLL_SIZE];
-        while (!exit_flag_) {
-            delay_ms = get_min_delay_ms();
-            int n    = epoll_wait(epoll_fd_, events, EPOLL_SIZE,
-                               delay_ms ? delay_ms : -1);
-            if (n <= 0) {
-                // 超时或被中断
+        for (int i = 0; i < n; ++i) {
+            struct epoll_event& event = events[i];
+            int                 fd    = event.data.fd;
+            std::unordered_map<int, std::shared_ptr<PollEventCB>>::iterator it =
+                event_map_.find(fd);
+            if (it == event_map_.end()) {
+                epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
                 continue;
             }
 
-            for (int i = 0; i < n; ++i) {
-                struct epoll_event& event = events[i];
-                int                 fd    = event.data.fd;
-                std::unordered_map<int, std::shared_ptr<PollEventCB>>::iterator
-                    it = event_map_.find(fd);
-                if (it == event_map_.end()) {
-                    epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, fd, nullptr);
-                    continue;
-                }
-
-                std::shared_ptr<PollEventCB> cb = it->second;
-                try {
-                    (*cb)(TO_POLLER(event.events));
-                }
-                catch (std::exception& e) {
-                    LOG_E << "event poller caught an exception while executing "
-                             "event handler. "
-                          << e.what();
-                }
+            std::shared_ptr<PollEventCB> cb = it->second;
+            try {
+                (*cb)(TO_POLLER(event.events));
+            }
+            catch (std::exception& e) {
+                LOG_E << "event poller caught an exception while executing "
+                         "event handler. "
+                      << e.what();
             }
         }
-
-        // @warning 线程退出时，清理全局map
-        if (register_current_poller) {
-            std::lock_guard<std::mutex> lock(s_all_threads_mux);
-            s_all_threads_map.erase(loop_tid_);
-        }
-    }
-    else {
-        loop_thread_ = new std::thread(std::bind(
-            &EventPoller::RunLoop, this, true, register_current_poller));
-        run_started_sem_.Wait();
     }
 }
 
 void EventPoller::Shutdown()
 {
-    async([]() { throw ExitException(); }, false, true);
-
-    if (loop_thread_) {
-        loop_thread_->join();
-        delete loop_thread_;
-        loop_thread_ = nullptr;
-    }
-}
-
-void EventPoller::Wait()
-{
-    LOCK_GUARD(running_mux_);
-}
-
-EventPoller::Ptr EventPoller::GetCurrentPoller()
-{
-    std::lock_guard<std::mutex> lock(s_all_threads_mux);
-    std::map<std::thread::id, std::weak_ptr<EventPoller>>::iterator it =
-        s_all_threads_map.find(std::this_thread::get_id());
-    if (it == s_all_threads_map.end()) {
-        return nullptr;
-    }
-    return it->second.lock();
+    async([]() { throw ExitException(); }, true);
 }
 
 inline void EventPoller::on_pipe_event()
@@ -262,12 +187,7 @@ inline void EventPoller::on_pipe_event()
     } while (get_uv_error() != EAGAIN);
 
     List<Task::Ptr> swap_list;
-
-    {
-        LOCK_GUARD(task_mux_);
-        swap_list.swap(task_list_);
-    }
-
+    swap_list.swap(task_list_);
     swap_list.for_each([&](const Task::Ptr& f) {
         try {
             (*f)();
@@ -334,17 +254,12 @@ uint64_t EventPoller::flush_delay_tasks(uint64_t now)
     return it->first - now;
 }
 
-Task::Ptr EventPoller::async(TaskIn&& task, bool may_sync, bool first)
+Task::Ptr EventPoller::async(TaskIn&& task, bool first)
 {
     TimeTicker();
-    if (may_sync && IsCurrentThread()) {
-        task();
-        return nullptr;
-    }
 
     Task::Ptr ptask = std::make_shared<Task>(std::move(task));
     {
-        LOCK_GUARD(task_mux_);
         if (first) {
             task_list_.emplace_front(ptask);
         }
@@ -356,50 +271,6 @@ Task::Ptr EventPoller::async(TaskIn&& task, bool may_sync, bool first)
     pipe_.Write("", 1);
 
     return ptask;
-}
-
-int EventPollerPool::s_pool_size_ = 0;
-
-INSTANCE_IMPL(EventPollerPool)
-
-EventPollerPool::EventPollerPool()
-{
-    int size =
-        s_pool_size_ > 0 ? s_pool_size_ : std::thread::hardware_concurrency();
-
-    create_executor(
-        []() {
-            EventPoller::Ptr ret(new EventPoller);
-            ret->RunLoop(false, true);
-            return ret;
-        },
-        size);
-
-    LOG_I << "event poller pool size: " << size;
-}
-
-void EventPollerPool::SetPoolSize(int size)
-{
-    s_pool_size_ = size;
-}
-
-EventPoller::Ptr EventPollerPool::GetFirstPoller()
-{
-    return std::dynamic_pointer_cast<EventPoller>(executors_.front());
-}
-
-EventPoller::Ptr EventPollerPool::GetPoller()
-{
-    EventPoller::Ptr poller = EventPoller::GetCurrentPoller();
-    if (prefer_current_thread_ && poller) {
-        return poller;
-    }
-    return std::dynamic_pointer_cast<EventPoller>(GetExecutor());
-}
-
-void EventPollerPool::SetPreferCurrentThread(bool flag)
-{
-    prefer_current_thread_ = flag;
 }
 
 }  // namespace common_library

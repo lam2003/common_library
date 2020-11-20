@@ -9,7 +9,7 @@ namespace common_library {
 
 INSTANCE_IMPL(DNSCache);
 
-DNSCache::DNSCache(bool enable_mutex) : mux_(enable_mutex) {}
+DNSCache::DNSCache() {}
 
 bool DNSCache::Parse(const char* host, sockaddr_storage& addr, int expire_sec)
 {
@@ -31,7 +31,6 @@ bool DNSCache::get_cache_domain_ip(const char* host,
 {
     bool exist = false;
     {
-        LOCK_GUARD(mux_);
         auto it = dns_map_.find(host);
         if (it != dns_map_.end()) {
             item  = it->second;
@@ -41,7 +40,6 @@ bool DNSCache::get_cache_domain_ip(const char* host,
 
     if (exist && item.create_time + expire_sec < get_current_seconds()) {
         // timeout
-        LOCK_GUARD(mux_);
         dns_map_.erase(host);
         return false;
     }
@@ -66,7 +64,6 @@ bool DNSCache::get_system_domain_ip(const char* host, DNSItem& item)
     item.addr        = *(reinterpret_cast<sockaddr_storage*>(answer->ai_addr));
     item.create_time = get_current_seconds();
     {
-        LOCK_GUARD(mux_);
         dns_map_[host] = item;
     }
 

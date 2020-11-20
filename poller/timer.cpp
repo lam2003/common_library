@@ -9,9 +9,6 @@ Timer::Timer(float                        second,
              bool                         continue_when_exception)
 {
     poller_ = poller;
-    if (!poller_) {
-        poller_ = EventPollerPool::Instance().GetPoller();
-    }
 
     tag_ = poller_->DoDelayTask(
         second * 1000, [cb, second, continue_when_exception]() {

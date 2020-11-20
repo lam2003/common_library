@@ -20,7 +20,6 @@ add_library(lmcomm
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/logger.cpp 
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/utils.cpp 
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/uv_error.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/thread/worker.cpp
 )
 
 target_include_directories(lmcomm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

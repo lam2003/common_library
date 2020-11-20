@@ -1,6 +1,5 @@
 #include <net/socket.h>
 #include <net/socket_utils.h>
-#include <thread/worker.h>
 #include <utils/logger.h>
 #include <utils/uv_error.h>
 
@@ -22,8 +21,6 @@ inline LogContextCapturer& Socket::socket_log(const LogContextCapturer& logger,
 {
     LogContextCapturer& l = const_cast<LogContextCapturer&>(logger);
 
-    LOCK_GUARD(ptr->sockfd_mux_);
-
     if (!ptr->sockfd_) {
         return l;
     }
@@ -40,19 +37,14 @@ inline LogContextCapturer& Socket::socket_log(const LogContextCapturer& logger,
     return l;
 }
 
-Socket::Ptr Socket::Create(const EventPoller::Ptr& poller, bool enable_mutex)
+Socket::Ptr Socket::Create(const EventPoller::Ptr& poller)
 {
-    return std::make_shared<Socket>(poller, enable_mutex);
+    return std::make_shared<Socket>(poller);
 }
 
-Socket::Socket(const EventPoller::Ptr& poller, bool enable_mutex)
-    : sockfd_mux_(enable_mutex), cb_mux_(enable_mutex)
+Socket::Socket(const EventPoller::Ptr& poller)
 {
     poller_ = poller;
-    if (!poller_) {
-        poller_ = EventPollerPool::Instance().GetPoller();
-    }
-
     SetOnError(nullptr);
     SetOnFlushed(nullptr);
     SetOnRead(nullptr);
@@ -85,7 +77,6 @@ int Socket::Connect(const std::string& host,
         if (err) {
             // 错误发生，将fd从epoll中移除
             socket_log(LOG_E, strong_self.get()) << ". " << err.what();
-            LOCK_GUARD(strong_self->sockfd_mux_);
             strong_self->sockfd_ = nullptr;
         }
         else {
@@ -117,13 +108,10 @@ int Socket::Connect(const std::string& host,
             auto sockfd =
                 std::make_shared<SocketFD>(fd, SOCK_TCP, strong_self->poller_);
             std::weak_ptr<SocketFD> weak_sockfd = sockfd;
-            {
-                LOCK_GUARD(strong_self->sockfd_mux_);
-                strong_self->sockfd_ = sockfd;
-            }
+            strong_self->sockfd_                = sockfd;
 
             int ret = strong_self->poller_->AddEvent(
-                fd, PE_WRITE, [connect_cb, weak_sockfd, weak_self](int event) {
+                fd, PE_WRITE, [connect_cb, weak_self, weak_sockfd](int event) {
                     auto strong_self   = weak_self.lock();
                     auto strong_sockfd = weak_sockfd.lock();
 
@@ -194,14 +182,11 @@ void Socket::Close()
 {
     connect_timer_    = nullptr;
     async_connect_cb_ = nullptr;
-
-    LOCK_GUARD(sockfd_mux_);
-    sockfd_ = nullptr;
+    sockfd_           = nullptr;
 }
 
 void Socket::SetOnError(ErrorCB&& cb)
 {
-    LOCK_GUARD(cb_mux_);
     if (cb) {
         error_cb_ = std::move(cb);
     }
@@ -212,7 +197,6 @@ void Socket::SetOnError(ErrorCB&& cb)
 
 void Socket::SetOnFlushed(FlushedCB&& cb)
 {
-    LOCK_GUARD(cb_mux_);
     if (cb) {
         flushed_cb_ = std::move(cb);
     }
@@ -223,7 +207,6 @@ void Socket::SetOnFlushed(FlushedCB&& cb)
 
 void Socket::SetOnRead(ReadCB&& cb)
 {
-    LOCK_GUARD(cb_mux_);
     if (cb) {
         read_cb_ = std::move(cb);
     }
@@ -234,7 +217,6 @@ void Socket::SetOnRead(ReadCB&& cb)
 
 void Socket::SetOnAccept(AcceptCB&& cb)
 {
-    LOCK_GUARD(cb_mux_);
     if (cb) {
         accept_cb_ = std::move(cb);
     }
@@ -247,14 +229,12 @@ SocketFD::Ptr Socket::SetPeerSocket(int fd)
 {
     Close();
     SocketFD::Ptr sockfd = SocketFD::Create(fd, SOCK_TCP, poller_);
-    LOCK_GUARD(sockfd_mux_);
-    sockfd_ = sockfd;
+    sockfd_              = sockfd;
     return sockfd_;
 }
 
 std::string Socket::GetLocalIP() const
 {
-    LOCK_GUARD(sockfd_mux_);
     if (!sockfd_) {
         return "";
     }
@@ -263,7 +243,6 @@ std::string Socket::GetLocalIP() const
 
 std::string Socket::GetPeerIP() const
 {
-    LOCK_GUARD(sockfd_mux_);
     if (!sockfd_) {
         return "";
     }
@@ -272,7 +251,6 @@ std::string Socket::GetPeerIP() const
 
 uint16_t Socket::GetLocalPort() const
 {
-    LOCK_GUARD(sockfd_mux_);
     if (!sockfd_) {
         return 0;
     }
@@ -281,7 +259,6 @@ uint16_t Socket::GetLocalPort() const
 
 uint16_t Socket::GetPeerPort() const
 {
-    LOCK_GUARD(sockfd_mux_);
     if (!sockfd_) {
         return 0;
     }
@@ -290,7 +267,6 @@ uint16_t Socket::GetPeerPort() const
 
 bool Socket::IsConnected() const
 {
-    LOCK_GUARD(sockfd_mux_);
     if (!sockfd_) {
         return false;
     }
@@ -326,7 +302,7 @@ void Socket::start_writeable_event(const SocketFD::Ptr& sockfd)
     sending_ = true;
 }
 
-bool Socket::flush_data(const SocketFD::Ptr& sockfd, bool is_poller_thread)
+bool Socket::flush_data(const SocketFD::Ptr& sockfd)
 {
     List<BufferList::Ptr> send_buf_sending_tmp;
     {
@@ -346,12 +322,10 @@ bool Socket::flush_data(const SocketFD::Ptr& sockfd, bool is_poller_thread)
                 }
             }
 
-            // sending/waiting都为空
-            if (is_poller_thread) {
-                stop_writeable_event(sockfd);
-                on_flushed();
-            }
+            stop_writeable_event(sockfd);
+            on_flushed();
             return true;
+
         } while (0);
     }
 
@@ -368,18 +342,12 @@ bool Socket::flush_data(const SocketFD::Ptr& sockfd, bool is_poller_thread)
                 continue;
             }
 
-            if (!is_poller_thread) {
-                start_writeable_event(sockfd);
-            }
             break;
         }
 
         // n <= 0
         int err = get_uv_error();
         if (err == EAGAIN) {
-            if (!is_poller_thread) {
-                start_writeable_event(sockfd);
-            }
             break;
         }
 
@@ -395,7 +363,7 @@ bool Socket::flush_data(const SocketFD::Ptr& sockfd, bool is_poller_thread)
 
     // sending缓存已经全部发送完毕，说明该socket还可写，尝试继续写
     // 如果是poller线程，我们尝试再次写一次(因为可能其他线程调用了send函数又有新数据了)
-    return is_poller_thread ? flush_data(sockfd, true) : true;
+    return flush_data(sockfd);
 }
 
 bool Socket::attach_event(const SocketFD::Ptr& sockfd, bool is_udp)
@@ -484,7 +452,6 @@ int Socket::on_read(const SocketFD::Ptr& sockfd, bool is_udp)
         data[nread] = '\0';
         buffer->SetSize(nread);
 
-        LOCK_GUARD(cb_mux_);
         if (read_cb_) {
             read_cb_(buffer, &addr, len);
         }
@@ -505,7 +472,7 @@ void Socket::on_writeable(const SocketFD::Ptr& sockfd)
         stop_writeable_event(sockfd);
     }
     else {
-        flush_data(sockfd, true);
+        flush_data(sockfd);
     }
 }
 
@@ -516,14 +483,12 @@ bool Socket::on_error(const SocketFD::Ptr& sockfd)
 
 bool Socket::emit_error(const SocketException& err)
 {
-    {
-        socket_log(LOG_E, this) << ". " << err.what();
-        LOCK_GUARD(sockfd_mux_);
-        if (!sockfd_) {
-            return false;
-        }
-        Close();
+    socket_log(LOG_E, this) << ". " << err.what();
+
+    if (!sockfd_) {
+        return false;
     }
+    Close();
 
     std::weak_ptr<Socket> weak_self = shared_from_this();
     poller_->Async([weak_self, err]() {
@@ -531,7 +496,6 @@ bool Socket::emit_error(const SocketException& err)
         if (!strong_self) {
             return;
         }
-        LOCK_GUARD(strong_self->cb_mux_);
         if (strong_self->error_cb_) {
             strong_self->error_cb_(err);
         }
@@ -544,12 +508,10 @@ void Socket::on_flushed()
 {
     bool flag = false;
 
-    {
-        LOCK_GUARD(cb_mux_);
-        if (flushed_cb_) {
-            flag = flushed_cb_();
-        }
+    if (flushed_cb_) {
+        flag = flushed_cb_();
     }
+
     if (!flag) {
         SetOnFlushed(nullptr);
     }
@@ -581,15 +543,12 @@ int Socket::on_accept(const SocketFD::Ptr& sockfd, int event)
         SocketUtils::SetCloseWait(fd);
         SocketUtils::SetCloExec(fd);
 
-        Socket::Ptr   peer_socket = Socket::Create(poller_, false);
+        Socket::Ptr   peer_socket = Socket::Create(poller_);
         SocketFD::Ptr peer_sockfd = peer_socket->SetPeerSocket(fd);
         peer_sockfd->SetConnected();
 
-        {
-            LOCK_GUARD(cb_mux_);
-            if (accept_cb_) {
-                accept_cb_(peer_socket);
-            }
+        if (accept_cb_) {
+            accept_cb_(peer_socket);
         }
 
         bool ok = peer_socket->attach_event(peer_sockfd);
@@ -632,7 +591,6 @@ bool Socket::listen(const SocketFD::Ptr& sockfd)
         return false;
     }
 
-    LOCK_GUARD(sockfd_mux_);
     sockfd_ = sockfd;
 
     return true;
@@ -661,19 +619,13 @@ int Socket::send(const Buffer::Ptr& buf, sockaddr* addr, socklen_t len)
         return 0;
     }
 
-    SocketFD::Ptr sockfd;
-    {
-        LOCK_GUARD(sockfd_mux_);
-        sockfd = sockfd_;
-    }
-
-    if (!sockfd) {
+    if (!sockfd_) {
         return -1;
     }
 
     std::weak_ptr<Socket>   weak_self   = shared_from_this();
-    std::weak_ptr<SocketFD> weak_sockfd = sockfd;
-    Buffer::Ptr             tmp_buf     = (sockfd->Type() == SOCK_UDP ?
+    std::weak_ptr<SocketFD> weak_sockfd = sockfd_;
+    Buffer::Ptr             tmp_buf     = (sockfd_->Type() == SOCK_UDP ?
                                std::make_shared<BufferSock>(buf, addr, len) :
                                buf);
 

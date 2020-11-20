@@ -1,8 +1,6 @@
 #ifndef COMMON_LIBRARY_DNS_CACHE_H
 #define COMMON_LIBRARY_DNS_CACHE_H
 
-#include <utils/mutex_wrapper.h>
-
 #include <unordered_map>
 
 #include <sys/socket.h>
@@ -25,14 +23,13 @@ class DNSCache final {
         uint64_t create_time;
     };
 
-    DNSCache(bool enable_mutex = true);
+    DNSCache();
 
     bool get_cache_domain_ip(const char* host, DNSItem& item, int expire_sec);
 
     bool get_system_domain_ip(const char* host, DNSItem& item);
 
   private:
-    MutexWrapper<std::mutex>                 mux_;
     std::unordered_map<std::string, DNSItem> dns_map_;
 };
 

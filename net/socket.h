@@ -8,7 +8,6 @@
 #include <net/buffer.h>
 #include <poller/event_poller.h>
 #include <poller/timer.h>
-#include <utils/mutex_wrapper.h>
 #include <utils/noncopyable.h>
 
 #include <sys/socket.h>
@@ -156,9 +155,9 @@ class Socket final : public std::enable_shared_from_this<Socket>,
                                                      ReadCB;
     typedef std::function<void(Socket::Ptr& socket)> AcceptCB;
 
-    static Socket::Ptr Create(const EventPoller::Ptr& poller, bool enable_mute);
+    static Socket::Ptr Create(const EventPoller::Ptr& poller);
 
-    Socket(const EventPoller::Ptr& poller, bool enable_mutex);
+    Socket(const EventPoller::Ptr& poller);
 
     ~Socket();
 
@@ -200,7 +199,7 @@ class Socket final : public std::enable_shared_from_this<Socket>,
     bool attach_event(const SocketFD::Ptr& sockfd, bool is_udp = false);
     void stop_writeable_event(const SocketFD::Ptr& sockfd);
     void start_writeable_event(const SocketFD::Ptr& sockfd);
-    bool flush_data(const SocketFD::Ptr& sockfd, bool is_poller_thread);
+    bool flush_data(const SocketFD::Ptr& sockfd);
 
     void on_connected(const SocketFD::Ptr& sockfd, const ErrorCB& cb);
     int  on_read(const SocketFD::Ptr& sockfd, bool is_udp);
@@ -223,8 +222,7 @@ class Socket final : public std::enable_shared_from_this<Socket>,
     std::shared_ptr<Timer>                    connect_timer_;
     std::shared_ptr<std::function<void(int)>> async_connect_cb_;
 
-    mutable MutexWrapper<std::recursive_mutex> sockfd_mux_;
-    SocketFD::Ptr                              sockfd_;
+    SocketFD::Ptr sockfd_;
 
     BufferRaw::Ptr read_buf_ = nullptr;
 
@@ -235,11 +233,10 @@ class Socket final : public std::enable_shared_from_this<Socket>,
     bool              sending_ = true;
     std::atomic<bool> enable_recv_{true};
 
-    mutable MutexWrapper<std::mutex> cb_mux_;
-    ErrorCB                          error_cb_;
-    FlushedCB                        flushed_cb_;
-    ReadCB                           read_cb_;
-    AcceptCB                         accept_cb_;
+    ErrorCB   error_cb_;
+    FlushedCB flushed_cb_;
+    ReadCB    read_cb_;
+    AcceptCB  accept_cb_;
 
     int socket_flags_;
 };
