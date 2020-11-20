@@ -387,10 +387,11 @@ bool Socket::attach_event(const SocketFD::Ptr& sockfd, bool is_udp)
                               if (event & PE_READ) {
                                   strong_self->on_read(strong_sockfd, is_udp);
                               }
-                              if (event & PE_WRITE) {
+                              // 如果读时错误已经发生了，停止后面的事件处理
+                              if (strong_self->sockfd_ && (event & PE_WRITE)) {
                                   strong_self->on_writeable(strong_sockfd);
                               }
-                              if (event & PE_ERROR) {
+                              if (strong_self->sockfd_ && (event & PE_ERROR)) {
                                   strong_self->on_error(strong_sockfd);
                               }
                           });
@@ -483,8 +484,6 @@ bool Socket::on_error(const SocketFD::Ptr& sockfd)
 
 bool Socket::emit_error(const SocketException& err)
 {
-    socket_log(LOG_E, this) << ". " << err.what();
-
     if (!sockfd_) {
         return false;
     }
