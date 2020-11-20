@@ -75,12 +75,7 @@ int Socket::Connect(const std::string& host,
         strong_self->async_connect_cb_ = nullptr;
 
         if (err) {
-            // 错误发生，将fd从epoll中移除
-            socket_log(LOG_E, strong_self.get()) << ". " << err.what();
             strong_self->sockfd_ = nullptr;
-        }
-        else {
-            socket_log(LOG_I, strong_self.get()) << ". " << err.what();
         }
 
         // 给用户回调connect结果

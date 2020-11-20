@@ -30,6 +30,24 @@ void signal_handler(int signo)
     }
 }
 
+void connect(int i)
+{
+    g_socket[i]->Connect(
+        "linmin.xyz", 80,
+        [i](const SocketException& err) {
+            if (err) {
+                LOG_E << err.what();
+                connect(i);
+            }
+            else {
+                LOG_D << err.what();
+                char buf[128 * 1024] = {1};
+                g_socket[i]->Send(buf, sizeof(buf));
+            }
+        },
+        10);
+}
+
 int main()
 {
     signal(SIGINT, signal_handler);
@@ -40,11 +58,15 @@ int main()
 
     for (int i = 0; i < CONNECTION_NUM; i++) {
         g_socket[i] = std::make_shared<Socket>(g_poller);
-        g_socket[i]->SetOnError(
-            [](const SocketException& e) { LOG_E << e.what(); });
-        g_socket[i]->SetOnRead([](const Buffer::Ptr& buf,
-                                  sockaddr_storage*  addr,
-                                  socklen_t len) { LOG_D << buf->Size(); });
+        g_socket[i]->SetOnError([i](const SocketException& e) {
+            LOG_E << e.what();
+            connect(i);
+        });
+        g_socket[i]->SetOnRead(
+            [i](const Buffer::Ptr& buf, sockaddr_storage* addr, socklen_t len) {
+                g_socket[i]->Close();
+                connect(i);
+            });
         g_socket[i]->SetOnFlushed([]() {
             LOG_D << "flushed";
             return true;
@@ -52,19 +74,7 @@ int main()
     }
 
     for (int i = 0; i < CONNECTION_NUM; i++) {
-        g_socket[i]->Connect(
-            "baidu.com", 80,
-            [i](const SocketException& err) {
-                if (err) {
-                    LOG_E << err.what();
-                }
-                else {
-                    LOG_D << err.what();
-                    char buf[128 * 1024] = {1};
-                    g_socket[i]->Send(buf, sizeof(buf));
-                }
-            },
-            10);
+        connect(i);
     }
 
     g_poller->RunLoop();
