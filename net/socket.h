@@ -230,8 +230,8 @@ class Socket final : public std::enable_shared_from_this<Socket>,
     List<BufferList::Ptr> send_buf_sending_;
     List<Buffer::Ptr>     send_buf_waiting_;
 
-    bool              sending_ = true;
-    std::atomic<bool> enable_recv_{true};
+    bool sending_ = true;
+    bool enable_recv_ = true;
 
     ErrorCB   error_cb_;
     FlushedCB flushed_cb_;

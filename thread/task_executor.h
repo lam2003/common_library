@@ -6,7 +6,6 @@
 #include <utils/once_token.h>
 #include <utils/time_ticker.h>
 
-#include <atomic>
 #include <vector>
 
 namespace common_library {

@@ -1,7 +1,6 @@
 #include "net/socket.h"
 #include "net/socket_utils.h"
 #include "poller/event_poller.h"
-#include "thread/worker.h"
 #include "utils/logger.h"
 #include "utils/time_ticker.h"
 #include <arpa/inet.h>
@@ -15,33 +14,51 @@ using namespace std;
 using namespace common_library;
 
 #define TEST_TIME 10
-/**
- * socket工具库测试
- * @return
- */
+std::map<std::string, Socket::Ptr> g_sockets;
+EventPoller::Ptr                   g_poller;
 
-std::vector<Socket::Ptr> vec;
+void signal_handler(int signo)
+{
+    if (signo == SIGINT || signo == SIGTERM) {
+        g_poller->Shutdown();
+    }
+}
+
 int main()
 {
-    
-    Semaphore sem;
     //设置日志
     Logger::Instance().AddChannel(std::make_shared<ConsoleChannel>());
     Logger::Instance().SetWriter(
         std::make_shared<AsyncLogWriter>(Logger::Instance()));
 
-    TimeTicker();
+    g_poller = EventPoller::Create();
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
 
-    EventPoller::Ptr poller = EventPollerPool::Instance().GetPoller();
-    Socket::Ptr      socket = std::make_shared<Socket>(poller, true);
+    Socket::Ptr sock = Socket::Create(g_poller);
 
-    socket->SetOnAccept([](Socket::Ptr& socket) {
-        LOG_W << socket->GetPeerIP() << ":" << socket->GetPeerPort()
-              << " connected";
-        vec.emplace_back(socket);
+    sock->SetOnError([](const SocketException& err) {});
+    sock->SetOnAccept([](Socket::Ptr& cli) {
+        g_sockets.insert(std::make_pair(cli->GetIdentifier(), cli));
+        std::weak_ptr<Socket> weak_cli = cli;
+
+        cli->SetOnRead(
+            [](const Buffer::Ptr& buf, sockaddr_storage* addr, socklen_t len) {
+
+            });
+        cli->SetOnError([weak_cli](const SocketException& err) {
+            Socket::Ptr strong_cli = weak_cli.lock();
+            if (strong_cli) {
+                g_sockets.erase(strong_cli->GetIdentifier());
+            }
+        });
     });
-    
-    socket->Listen(11111, false);
-    sem.Wait();
+
+    sock->Listen(11111, false);
+
+    g_poller->RunLoop();
+
+    LOG_D << "########################################################### END";
+
     return 0;
 }

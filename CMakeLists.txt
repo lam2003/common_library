@@ -26,61 +26,9 @@ target_include_directories(lmcomm PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(lmcomm PUBLIC cxx_std_11)
 target_compile_options(lmcomm PUBLIC -Wall)
 
-   add_executable(test_socket_utils
-        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_socket_utils.cpp
-    )
-    add_dependencies(test_socket_utils 
-        lmcomm
-    )
-    target_include_directories(test_socket_utils PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-    target_compile_features(test_socket_utils PUBLIC cxx_std_11)
-    target_link_libraries(test_socket_utils lmcomm pthread)
 
 if(BUILD_LMCOMM_TEST)
     message("####################### build test #######################")
-    add_executable(test_thread_pool 
-        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_thread_pool.cpp
-    )
-    add_dependencies(test_thread_pool 
-        lmcomm
-    )
-    target_include_directories(test_thread_pool PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-    target_compile_features(test_thread_pool PUBLIC cxx_std_11)
-    target_link_libraries(test_thread_pool lmcomm pthread)
-
-
-    add_executable(test_event_poller 
-        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_event_poller.cpp
-    )
-    add_dependencies(test_event_poller 
-        lmcomm
-    )
-    target_include_directories(test_event_poller PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-    target_compile_features(test_event_poller PUBLIC cxx_std_11)
-    target_link_libraries(test_event_poller lmcomm pthread)
-
-    
-    add_executable(test_dns_cache
-        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_dns_cache.cpp
-    )
-    add_dependencies(test_dns_cache 
-        lmcomm
-    )
-    target_include_directories(test_dns_cache PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-    target_compile_features(test_dns_cache PUBLIC cxx_std_11)
-    target_link_libraries(test_dns_cache lmcomm pthread)
-
- 
-
-    add_executable(test_ipv6
-        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_ipv6.cpp
-    )
-    add_dependencies(test_ipv6 
-        lmcomm
-    )
-    target_include_directories(test_ipv6 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-    target_compile_features(test_ipv6 PUBLIC cxx_std_11)
-    target_link_libraries(test_ipv6 lmcomm pthread)
 
     add_executable(test_listen
         ${CMAKE_CURRENT_SOURCE_DIR}/test/test_listen.cpp
@@ -91,4 +39,14 @@ if(BUILD_LMCOMM_TEST)
     target_include_directories(test_listen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(test_listen PUBLIC cxx_std_11)
     target_link_libraries(test_listen lmcomm pthread)
+
+    add_executable(test_connect
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_connect.cpp
+    )
+    add_dependencies(test_connect 
+        lmcomm
+    )
+    target_include_directories(test_connect PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(test_connect PUBLIC cxx_std_11)
+    target_link_libraries(test_connect lmcomm pthread)
 endif()

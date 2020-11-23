@@ -278,7 +278,7 @@ std::string Socket::GetIdentifier() const
 void Socket::stop_writeable_event(const SocketFD::Ptr& sockfd)
 {
     int event = 0;
-    if (enable_recv_.load(std::memory_order_acquire)) {
+    if (enable_recv_) {
         event |= PE_READ;
     }
 
@@ -289,7 +289,7 @@ void Socket::stop_writeable_event(const SocketFD::Ptr& sockfd)
 void Socket::start_writeable_event(const SocketFD::Ptr& sockfd)
 {
     int event = 0;
-    if (enable_recv_.load(std::memory_order_acquire)) {
+    if (enable_recv_) {
         event |= PE_READ;
     }
 
@@ -423,7 +423,7 @@ int Socket::on_read(const SocketFD::Ptr& sockfd, bool is_udp)
     sockaddr_storage addr;
     socklen_t        len = sizeof(addr);
 
-    while (enable_recv_.load(std::memory_order_acquire)) {
+    while (enable_recv_) {
         do {
             nread = ::recvfrom(sockfd->RawFD(), data, capacity, 0,
                                reinterpret_cast<sockaddr*>(&addr), &len);
@@ -515,40 +515,42 @@ int Socket::on_accept(const SocketFD::Ptr& sockfd, int event)
 {
     int fd;
     while (true) {
-        do {
-            fd = accept(sockfd->RawFD(), nullptr, nullptr);
-        } while (fd == -1 && get_uv_error() == EINTR);
+        if (event & PE_READ) {
+            do {
+                fd = accept(sockfd->RawFD(), nullptr, nullptr);
+            } while (fd == -1 && get_uv_error() == EINTR);
 
-        if (fd == -1) {
-            int err = get_uv_error();
-            if (err == EAGAIN) {
-                // 握手完成队列的连接已经处理完了
-                return 0;
+            if (fd == -1) {
+                int err = get_uv_error();
+                if (err == EAGAIN) {
+                    // 握手完成队列的连接已经处理完了
+                    return 0;
+                }
+                socket_log(LOG_E, this)
+                    << " accept failed. " << uv_strerror(err);
+                on_error(sockfd);
+                return -1;
             }
-            socket_log(LOG_E, this) << " accept failed. " << uv_strerror(err);
-            on_error(sockfd);
-            return -1;
-        }
 
-        SocketUtils::SetNoBlocked(fd, true);
-        SocketUtils::SetNoDelay(fd);
-        SocketUtils::SetRecvBuf(fd);
-        SocketUtils::SetSendBuf(fd);
-        SocketUtils::SetCloseWait(fd);
-        SocketUtils::SetCloExec(fd);
+            SocketUtils::SetNoBlocked(fd, true);
+            SocketUtils::SetNoDelay(fd);
+            SocketUtils::SetRecvBuf(fd);
+            SocketUtils::SetSendBuf(fd);
+            SocketUtils::SetCloseWait(fd);
+            SocketUtils::SetCloExec(fd);
 
-        Socket::Ptr   peer_socket = Socket::Create(poller_);
-        SocketFD::Ptr peer_sockfd = peer_socket->SetPeerSocket(fd);
-        peer_sockfd->SetConnected();
+            Socket::Ptr   peer_socket = Socket::Create(poller_);
+            SocketFD::Ptr peer_sockfd = peer_socket->SetPeerSocket(fd);
+            peer_sockfd->SetConnected();
 
-        if (accept_cb_) {
-            accept_cb_(peer_socket);
-        }
+            if (accept_cb_) {
+                accept_cb_(peer_socket);
+            }
 
-        bool ok = peer_socket->attach_event(peer_sockfd);
-        if (!ok) {
-            peer_socket->emit_error(SocketException(
-                ERR_OTHER, "attach to poller failed while accept"));
+            if (!peer_socket->attach_event(peer_sockfd)) {
+                peer_socket->emit_error(SocketException(
+                    ERR_OTHER, "attach to poller failed while accept"));
+            }
         }
 
         if (event & PE_ERROR) {
@@ -556,8 +558,6 @@ int Socket::on_accept(const SocketFD::Ptr& sockfd, int event)
             on_error(sockfd);
             return -1;
         }
-
-        return ok ? 0 : -1;
     }
 
     // should never reach here

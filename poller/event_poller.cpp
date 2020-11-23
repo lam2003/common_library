@@ -85,6 +85,9 @@ int EventPoller::AddEvent(int fd, int event, PollEventCB&& cb)
     if (ret == 0) {
         event_map_.emplace(fd, std::make_shared<PollEventCB>(cb));
     }
+    else {
+        LOG_E << "poller add event failed. " << get_uv_errmsg();
+    }
 
     return ret;
 }

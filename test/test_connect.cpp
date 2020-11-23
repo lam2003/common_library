@@ -21,9 +21,10 @@ using namespace common_library;
  */
 
 Socket::Ptr      g_socket[CONNECTION_NUM];
-EventPoller::Ptr g_poller = EventPoller::Create();
+EventPoller::Ptr g_poller        = EventPoller::Create();
+char             g_buf[128 * 1024] = {1};
 
-void signal_handler(int signo)
+void             signal_handler(int signo)
 {
     if (signo == SIGINT || signo == SIGTERM) {
         g_poller->Shutdown();
@@ -33,16 +34,14 @@ void signal_handler(int signo)
 void connect(int i)
 {
     g_socket[i]->Connect(
-        "linmin.xyz", 80,
+        "localhost", 11111,
         [i](const SocketException& err) {
             if (err) {
                 LOG_E << err.what();
                 connect(i);
             }
             else {
-                LOG_D << err.what();
-                char buf[128 * 1024] = {1};
-                g_socket[i]->Send(buf, sizeof(buf));
+                g_socket[i]->Send(g_buf, sizeof(g_buf));
             }
         },
         10);
@@ -59,7 +58,6 @@ int main()
     for (int i = 0; i < CONNECTION_NUM; i++) {
         g_socket[i] = std::make_shared<Socket>(g_poller);
         g_socket[i]->SetOnError([i](const SocketException& e) {
-            LOG_E << e.what();
             connect(i);
         });
         g_socket[i]->SetOnRead(
@@ -67,8 +65,9 @@ int main()
                 g_socket[i]->Close();
                 connect(i);
             });
-        g_socket[i]->SetOnFlushed([]() {
-            LOG_D << "flushed";
+        g_socket[i]->SetOnFlushed([i]() {
+            g_socket[i]->Close();
+            connect(i);
             return true;
         });
     }
