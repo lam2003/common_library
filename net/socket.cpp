@@ -570,7 +570,7 @@ bool Socket::listen(const SocketFD::Ptr& sockfd)
     std::weak_ptr<SocketFD> weak_sockfd = sockfd;
 
     int ret =
-        poller_->AddEvent(sockfd->RawFD(), PE_READ | PE_ERROR,
+        poller_->AddEvent(sockfd->RawFD(), PE_LT | PE_READ | PE_ERROR,
                           [weak_self, weak_sockfd](int event) {
                               auto strong_self   = weak_self.lock();
                               auto strong_sockfd = weak_sockfd.lock();
