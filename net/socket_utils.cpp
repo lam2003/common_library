@@ -179,15 +179,13 @@ static int get_addr_by_if(int          family,
         if (is_ipv6) {
             *(reinterpret_cast<sockaddr_in6*>(addr)) =
                 *(reinterpret_cast<sockaddr_in6*>(found->ifa_addr));
+            reinterpret_cast<sockaddr_in6*>(addr)->sin6_port = htons(port);
         }
         else {
             *(reinterpret_cast<sockaddr_in*>(addr)) =
                 *(reinterpret_cast<sockaddr_in*>(found->ifa_addr));
+            reinterpret_cast<sockaddr_in*>(addr)->sin_port = htons(port);
         }
-
-        (is_ipv6 ? reinterpret_cast<sockaddr_in6*>(&addr)->sin6_port :
-                   reinterpret_cast<sockaddr_in*>(&addr)->sin_port) =
-            htons(port);
     }
     else if (!found && strcmp(*adapter_name, "0.0.0.0") == 0) {
         get_default_addr(is_ipv6, adapter_name, port, addr);
