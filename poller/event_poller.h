@@ -56,6 +56,8 @@ class EventPoller final : public TaskExecutor,
      */
     void Shutdown();
 
+    bool IsClose();
+
   private:
     EventPoller();
 

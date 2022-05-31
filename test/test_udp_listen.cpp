@@ -40,7 +40,7 @@ int main(int argc, char** argv)
 
     sock->SetOnRead([sock](const Buffer::Ptr& buf, sockaddr_storage* addr,
                            socklen_t addr_len) {
-        sock->Send(buf.get()->Data(), buf.get()->Size(), addr, addr_len);
+        // sock->Send(buf.get()->Data(), buf.get()->Size(), addr, addr_len);
     });
 
     sockaddr_storage ss;
@@ -48,7 +48,7 @@ int main(int argc, char** argv)
     ((sockaddr_in6*)reinterpret_cast<sockaddr_in6*>(&ss))->sin6_port =
         htons(11111);
 
-    const char fff[1000] = {1};
+    const char fff[63*1024] = {1};
 
     sock->SetOnFlushed([&fff, &sock, &ss]() {
         sock->Send(fff, sizeof(fff), &ss, sizeof(ss));

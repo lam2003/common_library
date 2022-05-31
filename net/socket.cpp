@@ -301,6 +301,10 @@ void Socket::start_writeable_event(const SocketFD::Ptr& sockfd)
 
 bool Socket::flush_data(const SocketFD::Ptr& sockfd)
 {
+    if (poller_->IsClose()) {
+        return false;
+    }
+
     List<BufferList::Ptr> send_buf_sending_tmp;
     {
         if (!send_buf_sending_.empty()) {

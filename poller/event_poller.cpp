@@ -205,6 +205,11 @@ inline void EventPoller::on_pipe_event()
     });
 }
 
+bool EventPoller::IsClose()
+{
+    return exit_flag_;
+}
+
 uint64_t EventPoller::get_min_delay_ms()
 {
     std::multimap<uint64_t, DelayTask::Ptr>::iterator it = delay_tasks_.begin();
