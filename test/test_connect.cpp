@@ -13,7 +13,7 @@
 using namespace std;
 using namespace common_library;
 
-#define CONNECTION_NUM 5
+#define CONNECTION_NUM 100
 
 /**
  * socket工具库测试
@@ -22,7 +22,7 @@ using namespace common_library;
 
 Socket::Ptr      g_socket[CONNECTION_NUM];
 EventPoller::Ptr g_poller          = EventPoller::Create();
-char             g_buf[128 * 1024] = {1};
+char             g_buf[1024 * 1024] = {1};
 
 void signal_handler(int signo)
 {
