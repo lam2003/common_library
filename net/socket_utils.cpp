@@ -70,8 +70,12 @@ int SocketUtils::Connect(const char* host,
         return ret;
     }
 
-    (is_ipv6 ? (reinterpret_cast<sockaddr_in6*>(&addr))->sin6_port :
-               (reinterpret_cast<sockaddr_in*>(&addr))->sin_port) = htons(port);
+    if (is_ipv6) {
+        reinterpret_cast<sockaddr_in6*>(&addr)->sin6_port = htons(port);
+    }
+    else {
+        reinterpret_cast<sockaddr_in*>(&addr)->sin_port = htons(port);
+    }
 
     ret = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
     if (ret == 0) {
@@ -95,21 +99,18 @@ int SocketUtils::Connect(const char* host,
 static void
 get_default_addr(bool is_ipv6, const char** ip, uint16_t port, sockaddr* addr)
 {
-    int family = (is_ipv6 ? AF_INET6 : AF_INET);
-    *ip        = (is_ipv6 ? "::" : "0.0.0.0");
-
-    (is_ipv6 ? (reinterpret_cast<sockaddr_in6*>(addr))->sin6_family :
-               (reinterpret_cast<sockaddr_in*>(addr))->sin_family) = family;
-
-    (is_ipv6 ? (reinterpret_cast<sockaddr_in6*>(addr))->sin6_port :
-               (reinterpret_cast<sockaddr_in*>(addr))->sin_port) = htons(port);
-
-    void* pa = nullptr;
+    void* pa     = nullptr;
+    int   family = (is_ipv6 ? AF_INET6 : AF_INET);
+    *ip          = (is_ipv6 ? "::" : "0.0.0.0");
 
     if (is_ipv6) {
+        reinterpret_cast<sockaddr_in6*>(addr)->sin6_family = family;
+        reinterpret_cast<sockaddr_in6*>(addr)->sin6_port   = htons(port);
         pa = &(reinterpret_cast<sockaddr_in6*>(addr))->sin6_addr;
     }
     else {
+        reinterpret_cast<sockaddr_in*>(addr)->sin_family = family;
+        reinterpret_cast<sockaddr_in*>(addr)->sin_port   = htons(port);
         pa = &(reinterpret_cast<sockaddr_in*>(addr))->sin_addr;
     }
 

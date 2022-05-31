@@ -54,7 +54,7 @@ int main()
         });
     });
 
-    sock->Listen(11111, true, "fe80::250:56ff:fe85:7719");
+    sock->Listen(11111, true, "ens160");
     LOG_D << "\n"
           << sock->GetLocalIP() << "\n"
           << sock->GetLocalPort() << std::endl;
