@@ -5,6 +5,8 @@
 
 #include <string>
 
+#include <net/socket.h>
+
 struct sockaddr_storage;
 struct sockaddr;
 
@@ -12,7 +14,7 @@ namespace common_library {
 
 class SocketUtils {
   public:
-    static int CreateSocket(bool is_ipv6);
+    static int CreateSocket(SockType type, bool is_ipv6);
 
     static int Connect(const char* host,
                        uint16_t    port,
@@ -53,7 +55,8 @@ class SocketUtils {
 
     static uint16_t GetPeerPort(int fd);
 
-    static int Listen(uint16_t    port,
+    static int Listen(SockType    type,
+                      uint16_t    port,
                       bool        is_ipv6,
                       const char* local_ip = "0.0.0.0",
                       int         backlog  = 1024);

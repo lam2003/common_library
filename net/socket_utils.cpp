@@ -17,14 +17,17 @@
 
 namespace common_library {
 
-int SocketUtils::CreateSocket(bool is_ipv6)
+int SocketUtils::CreateSocket(SockType type, bool is_ipv6)
 {
-    int fd = -1;
+    int fd            = -1;
+    int protocol_type = (type == SOCK_TCP ? IPPROTO_TCP : IPPROTO_UDP);
+    int sock_type     = (type == SOCK_TCP ? SOCK_STREAM : SOCK_DGRAM);
+
     if (is_ipv6) {
-        fd = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+        fd = socket(AF_INET6, sock_type, protocol_type);
     }
     else {
-        fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        fd = socket(AF_INET, sock_type, protocol_type);
     }
 
     if (fd == -1) {
@@ -51,7 +54,7 @@ int SocketUtils::Connect(const char* host,
 
     bool is_ipv6 = (addr.ss_family == AF_INET6);
 
-    int fd = CreateSocket(is_ipv6);
+    int fd = CreateSocket(SOCK_TCP, is_ipv6);
     if (fd == -1) {
         return -1;
     }
@@ -474,12 +477,13 @@ uint16_t SocketUtils::GetPeerPort(int fd)
     return 0;
 }
 
-int SocketUtils::Listen(uint16_t    port,
+int SocketUtils::Listen(SockType    type,
+                        uint16_t    port,
                         bool        is_ipv6,
                         const char* local_ip,
                         int         backlog)
 {
-    int fd = CreateSocket(is_ipv6);
+    int fd = CreateSocket(type, is_ipv6);
     if (fd == -1) {
         return -1;
     }
@@ -493,7 +497,7 @@ int SocketUtils::Listen(uint16_t    port,
         return -1;
     }
 
-    if (::listen(fd, backlog) == -1) {
+    if ((type == SOCK_TCP) && (::listen(fd, backlog) == -1)) {
         LOG_E << "listen " << local_ip << ":" << port << " failed. "
               << get_uv_errmsg();
         ::close(fd);

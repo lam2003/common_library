@@ -168,17 +168,18 @@ class Socket final : public std::enable_shared_from_this<Socket>,
                 const std::string& local_ip    = "0.0.0.0",
                 uint16_t           local_port  = 0);
 
-    bool Listen(uint16_t           port,
+    bool Listen(SockType           type,
+                uint16_t           port,
                 bool               is_ipv6,
                 const std::string& local_ip = "0.0.0.0",
                 int                backlog  = 1024);
 
     void Close();
 
-    int Send(const char*      buf,
-             int              size,
-             struct sockaddr* addr = nullptr,
-             socklen_t        len  = 0);
+    int Send(const char*              buf,
+             int                      size,
+             struct sockaddr_storage* addr = nullptr,
+             socklen_t                len  = 0);
 
     void          SetOnError(ErrorCB&& cb);
     void          SetOnFlushed(FlushedCB&& cb);
@@ -209,7 +210,7 @@ class Socket final : public std::enable_shared_from_this<Socket>,
     void on_flushed();
     int  on_accept(const SocketFD::Ptr& sockfd, int event);
     bool listen(const SocketFD::Ptr& sockfd);
-    int  send(const Buffer::Ptr& buf, sockaddr* addr, socklen_t len);
+    int  send(const Buffer::Ptr& buf, sockaddr_storage* addr, socklen_t len);
 
     static SocketException get_socket_error(const SocketFD::Ptr& sockfd,
                                             bool try_errno = true);
@@ -230,7 +231,7 @@ class Socket final : public std::enable_shared_from_this<Socket>,
     List<BufferList::Ptr> send_buf_sending_;
     List<Buffer::Ptr>     send_buf_waiting_;
 
-    bool sending_ = true;
+    bool sending_     = true;
     bool enable_recv_ = true;
 
     ErrorCB   error_cb_;

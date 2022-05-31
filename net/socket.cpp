@@ -159,18 +159,20 @@ int Socket::Connect(const std::string& host,
     return 0;
 }
 
-bool Socket::Listen(uint16_t           port,
+bool Socket::Listen(SockType           type,
+                    uint16_t           port,
                     bool               is_ipv6,
                     const std::string& local_ip,
                     int                backlog)
 {
     Close();
 
-    int fd = SocketUtils::Listen(port, is_ipv6, local_ip.c_str(), backlog);
+    int fd =
+        SocketUtils::Listen(type, port, is_ipv6, local_ip.c_str(), backlog);
     if (fd == -1) {
         return false;
     }
-    return listen(SocketFD::Create(fd, SOCK_TCP, poller_));
+    return listen(SocketFD::Create(fd, type, poller_));
 }
 
 void Socket::Close()
@@ -568,21 +570,25 @@ bool Socket::listen(const SocketFD::Ptr& sockfd)
 {
     std::weak_ptr<Socket>   weak_self   = shared_from_this();
     std::weak_ptr<SocketFD> weak_sockfd = sockfd;
+    if (sockfd->Type() == SOCK_TCP) {
+        int ret =
+            poller_->AddEvent(sockfd->RawFD(), PE_LT | PE_READ | PE_ERROR,
+                              [weak_self, weak_sockfd](int event) {
+                                  auto strong_self   = weak_self.lock();
+                                  auto strong_sockfd = weak_sockfd.lock();
 
-    int ret =
-        poller_->AddEvent(sockfd->RawFD(), PE_LT | PE_READ | PE_ERROR,
-                          [weak_self, weak_sockfd](int event) {
-                              auto strong_self   = weak_self.lock();
-                              auto strong_sockfd = weak_sockfd.lock();
+                                  if (!strong_self || !strong_sockfd) {
+                                      return;
+                                  }
+                                  strong_self->on_accept(strong_sockfd, event);
+                              });
 
-                              if (!strong_self || !strong_sockfd) {
-                                  return;
-                              }
-                              strong_self->on_accept(strong_sockfd, event);
-                          });
-
-    if (ret == -1) {
-        return false;
+        if (ret == -1) {
+            return false;
+        }
+    }
+    else {
+        attach_event(sockfd, true);
     }
 
     sockfd_ = sockfd;
@@ -590,10 +596,10 @@ bool Socket::listen(const SocketFD::Ptr& sockfd)
     return true;
 }
 
-int Socket::Send(const char*      buf,
-                 int              size,
-                 struct sockaddr* addr,
-                 socklen_t        len)
+int Socket::Send(const char*              buf,
+                 int                      size,
+                 struct sockaddr_storage* addr,
+                 socklen_t                len)
 {
     if (size <= 0) {
         size = strlen(buf);
@@ -606,7 +612,9 @@ int Socket::Send(const char*      buf,
     return send(ptr, addr, len);
 }
 
-int Socket::send(const Buffer::Ptr& buf, sockaddr* addr, socklen_t len)
+int Socket::send(const Buffer::Ptr&       buf,
+                 struct sockaddr_storage* addr,
+                 socklen_t                len)
 {
     auto size = buf ? buf->Size() : 0;
     if (!size) {
@@ -620,8 +628,8 @@ int Socket::send(const Buffer::Ptr& buf, sockaddr* addr, socklen_t len)
     std::weak_ptr<Socket>   weak_self   = shared_from_this();
     std::weak_ptr<SocketFD> weak_sockfd = sockfd_;
     Buffer::Ptr             tmp_buf     = (sockfd_->Type() == SOCK_UDP ?
-                               std::make_shared<BufferSock>(buf, addr, len) :
-                               buf);
+                                               std::make_shared<BufferSock>(buf, addr, len) :
+                                               buf);
 
     poller_->AsyncFirst([weak_self, weak_sockfd, tmp_buf]() {
         auto strong_self   = weak_self.lock();

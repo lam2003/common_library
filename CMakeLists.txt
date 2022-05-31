@@ -49,4 +49,14 @@ if(BUILD_LMCOMM_TEST)
     target_include_directories(test_connect PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(test_connect PUBLIC cxx_std_11)
     target_link_libraries(test_connect lmcomm pthread)
+
+    add_executable(test_udp_listen
+    ${CMAKE_CURRENT_SOURCE_DIR}/test/test_udp_listen.cpp
+    )
+    add_dependencies(test_udp_listen 
+        lmcomm
+    )
+    target_include_directories(test_udp_listen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    target_compile_features(test_udp_listen PUBLIC cxx_std_11)
+    target_link_libraries(test_udp_listen lmcomm pthread)
 endif()

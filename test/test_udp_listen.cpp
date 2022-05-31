@@ -1,3 +1,4 @@
+#include "net/dns_cache.h"
 #include "net/socket.h"
 #include "net/socket_utils.h"
 #include "poller/event_poller.h"
@@ -24,7 +25,7 @@ void signal_handler(int signo)
     }
 }
 
-int main()
+int main(int argc, char** argv)
 {
     //设置日志
     Logger::Instance().AddChannel(std::make_shared<ConsoleChannel>());
@@ -37,24 +38,27 @@ int main()
 
     Socket::Ptr sock = Socket::Create(g_poller);
 
-    sock->SetOnError([](const SocketException& err) {});
-    sock->SetOnAccept([](Socket::Ptr& cli) {
-        g_sockets.insert(std::make_pair(cli->GetIdentifier(), cli));
-        std::weak_ptr<Socket> weak_cli = cli;
-
-        cli->SetOnRead(
-            [](const Buffer::Ptr& buf, sockaddr_storage* addr, socklen_t len) {
-
-            });
-        cli->SetOnError([weak_cli](const SocketException& err) {
-            Socket::Ptr strong_cli = weak_cli.lock();
-            if (strong_cli) {
-                g_sockets.erase(strong_cli->GetIdentifier());
-            }
-        });
+    sock->SetOnRead([sock](const Buffer::Ptr& buf, sockaddr_storage* addr,
+                           socklen_t addr_len) {
+        sock->Send(buf.get()->Data(), buf.get()->Size(), addr, addr_len);
     });
 
-    sock->Listen(SOCK_TCP, 11111, true, "ens160");
+    sockaddr_storage ss;
+    DNSCache::Instance().Parse(argv[1], ss);
+    sock->SetOnFlushed([&sock, &ss]() {
+        sock->Send("helloworld", 10, &ss, sizeof(ss));
+        return true;
+    });
+
+    // std::thread([&sock,&ss](){
+    //     while(1){
+    //         sock->
+    //     };
+    // }).detach();
+    sock->Listen(SOCK_UDP, 11111, true, "ens160");
+
+    sock->Send("helloworld", 10, &ss, sizeof(ss));
+
     LOG_D << "\n"
           << sock->GetLocalIP() << "\n"
           << sock->GetLocalPort() << std::endl;

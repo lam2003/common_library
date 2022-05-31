@@ -5,12 +5,12 @@
 #include <sys/uio.h>
 namespace common_library {
 
-BufferSock::BufferSock(const Buffer::Ptr& buffer,
-                       struct sockaddr*   addr,
-                       socklen_t          addr_len)
+BufferSock::BufferSock(const Buffer::Ptr&       buffer,
+                       struct sockaddr_storage* addr,
+                       socklen_t                addr_len)
 {
     if (addr && addr_len) {
-        addr_ = (struct sockaddr*)malloc(addr_len);
+        addr_ = (struct sockaddr_storage*)malloc(addr_len);
         memcpy(addr_, addr, addr_len);
         addr_len_ = addr_len;
     }

@@ -124,9 +124,9 @@ class BufferList;
 class BufferSock : public Buffer {
   public:
     friend class BufferList;
-    BufferSock(const Buffer::Ptr& buffer,
-               struct sockaddr*   addr     = nullptr,
-               socklen_t          addr_len = 0);
+    BufferSock(const Buffer::Ptr&       buffer,
+               struct sockaddr_storage* addr     = nullptr,
+               socklen_t                addr_len = 0);
     ~BufferSock();
 
   public:
@@ -134,9 +134,9 @@ class BufferSock : public Buffer {
     uint32_t Size() const override;
 
   private:
-    Buffer::Ptr      buffer_;
-    struct sockaddr* addr_     = nullptr;
-    socklen_t        addr_len_ = 0;
+    Buffer::Ptr              buffer_;
+    struct sockaddr_storage* addr_     = nullptr;
+    socklen_t                addr_len_ = 0;
 };
 
 class BufferList : public noncopyable {
