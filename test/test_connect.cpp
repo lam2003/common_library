@@ -21,10 +21,10 @@ using namespace common_library;
  */
 
 Socket::Ptr      g_socket[CONNECTION_NUM];
-EventPoller::Ptr g_poller        = EventPoller::Create();
+EventPoller::Ptr g_poller          = EventPoller::Create();
 char             g_buf[128 * 1024] = {1};
 
-void             signal_handler(int signo)
+void signal_handler(int signo)
 {
     if (signo == SIGINT || signo == SIGTERM) {
         g_poller->Shutdown();
@@ -44,7 +44,7 @@ void connect(int i)
                 g_socket[i]->Send(g_buf, sizeof(g_buf));
             }
         },
-        10);
+        10, "ens160", 0);
 }
 
 int main()
@@ -57,9 +57,7 @@ int main()
 
     for (int i = 0; i < CONNECTION_NUM; i++) {
         g_socket[i] = std::make_shared<Socket>(g_poller);
-        g_socket[i]->SetOnError([i](const SocketException& e) {
-            connect(i);
-        });
+        g_socket[i]->SetOnError([i](const SocketException& e) { connect(i); });
         g_socket[i]->SetOnRead(
             [i](const Buffer::Ptr& buf, sockaddr_storage* addr, socklen_t len) {
                 g_socket[i]->Close();
