@@ -47,8 +47,11 @@ int main(int argc, char** argv)
     DNSCache::Instance().Parse(argv[1], ss);
     ((sockaddr_in6*)reinterpret_cast<sockaddr_in6*>(&ss))->sin6_port =
         htons(11111);
-    sock->SetOnFlushed([&sock, &ss]() {
-        sock->Send("helloworld", 10, &ss, sizeof(ss));
+
+    const char fff[1000] = {1};
+
+    sock->SetOnFlushed([&fff, &sock, &ss]() {
+        sock->Send(fff, sizeof(fff), &ss, sizeof(ss));
         return true;
     });
 
@@ -66,7 +69,7 @@ int main(int argc, char** argv)
           << sock->GetLocalPort() << std::endl;
 
     g_poller->RunLoop();
-// fe80::250:56ff:fe85:c98d 
+    // fe80::250:56ff:fe85:c98d
     LOG_D << "########################################################### END";
 
     return 0;
