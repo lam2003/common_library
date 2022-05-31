@@ -34,7 +34,7 @@ void             signal_handler(int signo)
 void connect(int i)
 {
     g_socket[i]->Connect(
-        "localhost", 11111,
+        "fe80::250:56ff:fe85:7719", 11111,
         [i](const SocketException& err) {
             if (err) {
                 LOG_E << err.what();

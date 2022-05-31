@@ -55,8 +55,8 @@ int main()
     });
 
     sock->Listen(11111, true, "fe80::250:56ff:fe85:7719");
-    LOG_D << std::endl
-          << sock->GetLocalIP() << std::endl
+    LOG_D << "\n"
+          << sock->GetLocalIP() << "\n"
           << sock->GetLocalPort() << std::endl;
 
     g_poller->RunLoop();
