@@ -60,3 +60,9 @@ if(BUILD_LMCOMM_TEST)
     target_compile_features(test_udp_listen PUBLIC cxx_std_11)
     target_link_libraries(test_udp_listen lmcomm pthread)
 endif()
+
+# set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/sync/arch_ctx.S PROPERTY LANGUAGE C)
+# add_executable(testctx
+#     ${CMAKE_CURRENT_SOURCE_DIR}/sync/arch_ctx.S
+#     ${CMAKE_CURRENT_SOURCE_DIR}/sync/main.cpp
+# )
